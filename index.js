@@ -4,19 +4,17 @@ var util = require('util');
 
 var Q = require('q-plus');
 var _ = require('lodash');
-var logger = require('./utils/logger')('jobs');
 var disque = require('thunk-disque');
 
 var QUEUE = 'queue';           // Queue name for queued/active jobs
 var FAILED = 'failed';         // Queue name and TTL for failed jobs
 var COMPLETED = 'completed';   // Queue name and TTL for completed jobs
 
-function Jobber(opts) {
+function Tasqueue(opts) {
     var that = this;
 
     // Initialize as an Event Emitter
     EventEmitter.call(that);
-    // logger.log('initializing job queue with disque...');
 
     // Default options
     opts = _.defaults(opts || {}, {
@@ -31,12 +29,11 @@ function Jobber(opts) {
     that.client = disque.createClient(opts.port, { usePromise: true })
     .on('connect', function() {
         that.emit('client:connected');
-        // logger.log('connected to client');
         that.running = true;
         that.poll();
     })
     .on('error', function(err) {
-        throw err;
+        that.emit('client:error', err);
     });
 
     // Other properties
@@ -51,10 +48,10 @@ function Jobber(opts) {
 }
 
 // Event emitter inheritance
-util.inherits(Jobber, EventEmitter);
+util.inherits(Tasqueue, EventEmitter);
 
 // Shutdown the client
-Jobber.prototype.shutdown = function(n, cb) {
+Tasqueue.prototype.shutdown = function(n, cb) {
     var that = this;
     that.running = false;
 
@@ -75,8 +72,10 @@ Jobber.prototype.shutdown = function(n, cb) {
 };
 
 // Register a new job handler
-Jobber.prototype.registerHandler = function(handler) {
-    this.workers[handler.type] = {
+Tasqueue.prototype.registerHandler = function(handler) {
+    var that = this;
+
+    that.workers[handler.type] = {
         type: handler.type,
         current: 0,
         concurrency: handler.concurrency || 1,
@@ -98,7 +97,7 @@ Jobber.prototype.registerHandler = function(handler) {
             };
 
             dmn.once('error', function(err) {
-                logger.critical('Domain exception occured!');
+                that.emit('error:domain', err);
                 cleanup();
                 next(err);
             });
@@ -114,12 +113,11 @@ Jobber.prototype.registerHandler = function(handler) {
         }
     };
 
-    // logger.log('registered handler:', handler.type);
-    this.emit('handler:register', handler.type);
+    that.emit('handler:register', handler.type);
 };
 
 // Return a count of available workers
-Jobber.prototype.countAvailableWorkers = function() {
+Tasqueue.prototype.countAvailableWorkers = function() {
     var that = this;
     return _.reduce(that.workers, function(count, worker) {
         return count + (worker.concurrency - worker.current);
@@ -127,20 +125,20 @@ Jobber.prototype.countAvailableWorkers = function() {
 };
 
 // Return a count of available workers for a type
-Jobber.prototype.hasAvailableWorkerFor = function(type) {
+Tasqueue.prototype.hasAvailableWorkerFor = function(type) {
     var that = this;
     return that.workers[type].concurrency > that.workers[type].current;
 };
 
 // Get a list of handled types
-Jobber.prototype.listTypes = function() {
+Tasqueue.prototype.listTypes = function() {
     return _.chain(this.workers)
     .map('type')
     .value();
 };
 
 // Delay polling
-Jobber.prototype.delayPoll = function() {
+Tasqueue.prototype.delayPoll = function() {
     var that = this;
 
     if (that.pollTimeout) {
@@ -148,7 +146,6 @@ Jobber.prototype.delayPoll = function() {
         that.pollTimeout = null;
     }
 
-    // logger.log('delay polling by '+Math.floor(that.pollDelay/1000)+' seconds');
     that.emit('client:delaying', that.pollDelay);
     that.pollTimeout = setTimeout(function() {
         that.pollTimeout = null;
@@ -157,7 +154,7 @@ Jobber.prototype.delayPoll = function() {
 };
 
 // Poll a job and execute it
-Jobber.prototype.poll = function() {
+Tasqueue.prototype.poll = function() {
     var that = this;
     if (!that.running) return;
 
@@ -167,7 +164,6 @@ Jobber.prototype.poll = function() {
 
     if (availableWorkers <= 0) {
         that.emit('client:noworkers');
-        // logger.warn('no workers available');
         return that.delayPoll();
     }
 
@@ -181,11 +177,8 @@ Jobber.prototype.poll = function() {
         .value();
 
     that.emit('client:polling', types.length, availableWorkers, nWorkers);
-    // logger.log('poll jobs for', types.length, 'types with', availableWorkers+'/'+nWorkers, 'workers available');
     that.client.getjob(['NOHANG', 'WITHCOUNTERS', 'FROM', QUEUE])
     .then(function(res) {
-        // logger.log('job is available:', !!res);
-
         // No job available, reset TIMEOUT
         if (!res) return that.delayPoll();
 
@@ -205,18 +198,13 @@ Jobber.prototype.poll = function() {
         // No registered handler for this type
         if (!that.workers[job.type]) {
             that.emit('job:nohandler', job.id, job.type);
-            // logger.error('no handler for this job');
             return that.poll();
         }
 
         // No available worker for this job
         if (!that.hasAvailableWorkerFor(job.type)) {
             that.emit('job:requeue', job.id, job.type);
-            // logger.log('no available worker for this job: '+job.type+'. requeueing...');
-            return that.client.enqueue(job.id)
-            .then(function() {
-                return that.poll();
-            });
+            return that.client.enqueue(job.id);
         }
 
         // Mark worker as taken and process
@@ -238,28 +226,23 @@ Jobber.prototype.poll = function() {
     })
     .catch(function(err) {
         that.emit('error:polling', err);
-        // logger.critical('error polling:');
-        // logger.exception(err);
         return that.delayPoll();
     });
 };
 
 // Process a job
-Jobber.prototype.processJob = function(job) {
+Tasqueue.prototype.processJob = function(job) {
     var that = this;
 
     return Q()
     .then(function() {
         that.emit('job:start', job.id, job.type);
-        // logger.log('start job', job.id, 'of type', job.type);
 
         that.processing[job.id] = that.wrapJobprocess(job, that.workers[job.type].exec(job));
         return that.processing[job.id];
     })
     .fail(function(err) {
         that.emit('error:job', job.id, job.type, err);
-        // logger.critical('errroor !!');
-        // logger.exception(err);
     })
     .fin(function() {
         delete that.processing[job.id];
@@ -267,7 +250,7 @@ Jobber.prototype.processJob = function(job) {
 };
 
 // Wrap job processing with exec function
-Jobber.prototype.wrapJobprocess = function(job, exec) {
+Tasqueue.prototype.wrapJobprocess = function(job, exec) {
     var that = this;
 
     return Q(exec)
@@ -280,20 +263,19 @@ Jobber.prototype.wrapJobprocess = function(job, exec) {
 };
 
 // Base function to push a job to the COMPLETED queue
-Jobber.prototype.setAsCompleted = function(job) {
+Tasqueue.prototype.setAsCompleted = function(job) {
     return this.client.addjob(COMPLETED, JSON.stringify(job.body), 0, 'TTL', this.completedTTL);
 };
 
 // Base function to push a job to the FAILED queue
-Jobber.prototype.setAsFailed = function(job) {
+Tasqueue.prototype.setAsFailed = function(job) {
     return this.client.addjob(FAILED, JSON.stringify(job.body), 0, 'TTL', this.failedTTL);
 };
 
 // Acknowledge job to disque then push to completed queue
-Jobber.prototype.acknowledgeJob = function(job) {
+Tasqueue.prototype.acknowledgeJob = function(job) {
     var that = this;
 
-    // logger.log('job', job.id, 'is done');
     that.emit('job:success', job.id, job.type);
     return that.client.fastack(job.id)
     .then(function() {
@@ -302,18 +284,14 @@ Jobber.prototype.acknowledgeJob = function(job) {
 };
 
 // Handle failed job: nack and requeue or push to failed
-Jobber.prototype.handleFailedJob = function(job, err) {
+Tasqueue.prototype.handleFailedJob = function(job, err) {
     var that = this;
 
     // Get maxAttempts for this type of job
     var maxAttemps = that.workers[job.type].maxAttemps;
 
-    // logger.error('error with job ', job.id, ':');
-    // logger.exception(err);
-
     // Too many nacks, push to failed queue
     if ((job.nacks+1) >= maxAttemps) {
-        // logger.log('job has been marked as failed');
         that.emit('job:fail', job.id, job.type, err);
 
         // Add error info to job
@@ -325,7 +303,6 @@ Jobber.prototype.handleFailedJob = function(job, err) {
     }
     // Requeue job
     else {
-        // logger.log('requeuing job for the '+smartCount(job.nacks+1)+' time');
         that.emit('job:requeue', job.id, job.type, job.nacks+1);
         return that.client.nack(job.id);
     }
@@ -333,7 +310,7 @@ Jobber.prototype.handleFailedJob = function(job, err) {
 
 // Base list function
 // Takes state = 'active' (default), 'queued', 'failed', 'completed'
-Jobber.prototype._list = function(state, opts) {
+Tasqueue.prototype._list = function(state, opts) {
     var that = this;
 
     state = state || 'active';
@@ -358,13 +335,23 @@ Jobber.prototype._list = function(state, opts) {
 
 // Base count function
 // Takes state = 'active' (default), 'queued', 'failed', 'completed'
-Jobber.prototype._count = function(state) {
+// Takes opts for 'active' and 'queued' state:
+//      limit: limit to count
+//      all: flag (default is false), count over the whole QUEUE length
+Tasqueue.prototype._count = function(state, opts) {
     state = state || 'active';
 
     if (state === 'failed') return this.countFailed();
     if (state === 'completed') return this.countCompleted();
 
-    var query = ['QUEUE', QUEUE, 'STATE', state, 'REPLY', 'all'];
+    opts = _.defaults(opts || {}, {
+        limit: 100,
+        all: false
+    });
+
+    var query = ['COUNT', opts.limit, 'QUEUE', QUEUE, 'STATE', state, 'REPLY', 'all'];
+    if (opts.all) query.push('BUSYLOOP');
+
     return this.client.jscan(query)
     .then(function(res) {
         return Q(res[1].length);
@@ -375,7 +362,7 @@ Jobber.prototype._count = function(state) {
 };
 
 // Count completed jobs
-Jobber.prototype.countCompleted = function() {
+Tasqueue.prototype.countCompleted = function() {
     return this.client.qlen(COMPLETED)
     .then(function(length) {
         return Q(length);
@@ -386,12 +373,12 @@ Jobber.prototype.countCompleted = function() {
 };
 
 // List of completed jobs
-Jobber.prototype.listCompleted = function(opts) {
+Tasqueue.prototype.listCompleted = function(opts) {
     return this._list('completed', opts);
 };
 
 // Count failed jobs
-Jobber.prototype.countFailed = function() {
+Tasqueue.prototype.countFailed = function() {
     return this.client.qlen(FAILED)
     .then(function(length) {
         return Q(length);
@@ -402,32 +389,32 @@ Jobber.prototype.countFailed = function() {
 };
 
 // List of failed jobs
-Jobber.prototype.listFailed = function(opts) {
+Tasqueue.prototype.listFailed = function(opts) {
     return this._list('failed', opts);
 };
 
 // Count queued jobs
-Jobber.prototype.countQueued = function() {
-    return this._count('queued');
+Tasqueue.prototype.countQueued = function(opts) {
+    return this._count('queued', opts);
 };
 
 // List of queued jobs
-Jobber.prototype.listQueued = function(opts) {
+Tasqueue.prototype.listQueued = function(opts) {
     return this._list('queued', opts);
 };
 
 // Count active jobs
-Jobber.prototype.countActive = function() {
-    return this._count('active');
+Tasqueue.prototype.countActive = function(opts) {
+    return this._count('active', opts);
 };
 
 // List of active jobs
-Jobber.prototype.listActive = function(opts) {
+Tasqueue.prototype.listActive = function(opts) {
     return this._list('active', opts);
 };
 
 // Return a job's details
-Jobber.prototype.details = function(jobId) {
+Tasqueue.prototype.details = function(jobId) {
     return this.client.show(jobId)
     .then(function(job) {
         // Parse job body as pure JS
@@ -446,21 +433,25 @@ Jobber.prototype.details = function(jobId) {
 };
 
 // Push a new job
-Jobber.prototype.push = function(type, body) {
+Tasqueue.prototype.push = function(type, body) {
+    var that = this;
+
+    body = body || {};
     body._jobType = type;
 
     return this.client.addjob(QUEUE, JSON.stringify(body), 0)
     .then(function(jobId) {
-        this.emit('job:push', jobId, type);
+        that.emit('job:push', jobId, type);
         return Q(jobId);
     })
     .catch(function(err) {
+        that.emit('error:push', type, err);
         return Q.reject(err);
     });
 };
 
 // Utterly delete a job
-Jobber.prototype.delete = function(id) {
+Tasqueue.prototype.delete = function(id) {
     var that = this;
     if (_.isArray(id)) return Q.all(_.map(id, that.removeJob));
 
@@ -476,7 +467,7 @@ Jobber.prototype.delete = function(id) {
 
 // Cancel a job -> move to failed queue
 // Error if job is not 'queued' in QUEUE
-Jobber.prototype.cancel = function(id) {
+Tasqueue.prototype.cancel = function(id) {
     var that = this;
 
     if (_.isArray(id)) return Q.all(_.map(id, that.cancelJob));
@@ -508,8 +499,6 @@ Jobber.prototype.cancel = function(id) {
     })
     .catch(function(err) {
         that.emit('error:cancel', id);
-        // logger.error('error canceling job '+id);
-        // logger.error(err);
         return that.client.pause(QUEUE, 'none');
     });
 };
@@ -525,4 +514,4 @@ function mapScan(res) {
     return job;
 }
 
-module.exports = Jobber;
+module.exports = Tasqueue;
