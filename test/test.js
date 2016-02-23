@@ -7,22 +7,6 @@ var tasqueue = new Tasqueue({
     port: 7711
 });
 
-// var helloHandler = {
-//     concurrency: 10000,
-//     type: 'say:hello',
-//     exec: function(payload) {
-//         return Q.nfcall(fs.appendFile, 'hello.txt', 'Hello, '+payload.name+'\n', 'utf8');
-//     }
-// };
-
-// var hiHandler = {
-//     concurrency: 10000,
-//     type: 'say:hi',
-//     exec: function(payload) {
-//         return Q.nfcall(fs.appendFile, 'hi.txt', 'Hi, '+payload.name+'\n', 'utf8');
-//     }
-// };
-
 var random = {
     concurrency: 5,
     type: 'job:random',
@@ -33,7 +17,7 @@ var random = {
             var n = Math.random();
             if (n < 0.5) d.resolve();
             else d.reject(new Error('wrong number'));
-        }, 1000);
+        }, 100);
 
         return d.promise;
     }
@@ -80,20 +64,13 @@ tasqueue.on('client:connected', function() {
 })
 .on('job:success', function(jobId, jobType) {
     count++;
-    console.log(count);
     if (count % 100 === 0) listAll(count);
-    // console.log('finished job '+jobId);
 })
 .on('job:fail', function(jobId, jobType, err) {
     count++;
     if (count % 100 === 0) listAll(count);
-    // console.log('job '+jobId+' failed');
-    // console.log(err.message);
-    // console.log(err.stack);
 });
 
-// tasqueue.registerHandler(helloHandler);
-// tasqueue.registerHandler(hiHandler);
 tasqueue.init()
 .then(function() {
     // Register handler for job:random
@@ -104,12 +81,13 @@ tasqueue.init()
 
     // Push list of jobs
     for (var i = 0; i < 50000; i++) {
-        // tasqueue.push('say:hello', { name: 'world' });
-        // tasqueue.push('say:hi', { name: 'world' });
         tasqueue.push('job:random');
     }
 }, function(err) {
     console.log(err);
+    tasqueue.shutdown(1000, function() {
+        console.log('Tasqueue was shutdown');
+    });
 });
 
 function listAll(count) {
