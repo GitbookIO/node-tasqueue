@@ -76,7 +76,7 @@ Tasqueue.prototype.shutdown = function(n, cb) {
     .fin(function() {
         clearTimeout(timeout);
         that.client.clientEnd();
-        cb();
+        return cb();
     });
 };
 
@@ -338,12 +338,9 @@ Tasqueue.prototype._list = function(state, opts) {
         ['QUEUE', COMPLETED];
 
     var query = [opts.start, 'COUNT', opts.limit, 'REPLY', 'all'].concat(params);
-    return that.client.jscan(query)
+    return Q(that.client.jscan(query))
     .then(function(res) {
-        return Q(res[1].map(mapScan));
-    })
-    .catch(function(err) {
-        return Q.reject(err);
+        return res[1].map(mapScan);
     });
 };
 
@@ -366,24 +363,15 @@ Tasqueue.prototype._count = function(state, opts) {
     var query = ['COUNT', opts.limit, 'QUEUE', QUEUE, 'STATE', state, 'REPLY', 'all'];
     if (opts.all) query.push('BUSYLOOP');
 
-    return this.client.jscan(query)
+    return Q(this.client.jscan(query))
     .then(function(res) {
-        return Q(res[1].length);
-    })
-    .catch(function(err) {
-        return Q.reject(err);
+        return res[1].length;
     });
 };
 
 // Count completed jobs
 Tasqueue.prototype.countCompleted = function() {
-    return this.client.qlen(COMPLETED)
-    .then(function(length) {
-        return Q(length);
-    })
-    .catch(function(err) {
-        return Q.reject(err);
-    });
+    return Q(this.client.qlen(COMPLETED));
 };
 
 // List of completed jobs
@@ -393,13 +381,7 @@ Tasqueue.prototype.listCompleted = function(opts) {
 
 // Count failed jobs
 Tasqueue.prototype.countFailed = function() {
-    return this.client.qlen(FAILED)
-    .then(function(length) {
-        return Q(length);
-    })
-    .catch(function(err) {
-        return Q.reject(err);
-    });
+    return Q(this.client.qlen(FAILED));
 };
 
 // List of failed jobs
@@ -429,7 +411,7 @@ Tasqueue.prototype.listActive = function(opts) {
 
 // Return a job's details
 Tasqueue.prototype.details = function(jobId) {
-    return this.client.show(jobId)
+    return Q(this.client.show(jobId))
     .then(function(job) {
         // Parse job body as pure JS
         job.body = JSON.parse(job.body);
@@ -439,10 +421,7 @@ Tasqueue.prototype.details = function(jobId) {
         // Set job.state based on queue and state
         job.state = job.queue === QUEUE? job.state : job.queue;
 
-        return Q(job);
-    })
-    .catch(function(err) {
-        return Q.reject(err);
+        return job;
     });
 };
 
@@ -453,14 +432,10 @@ Tasqueue.prototype.push = function(type, body) {
     body = body || {};
     body._jobType = type;
 
-    return this.client.addjob(QUEUE, JSON.stringify(body), 0)
+    return Q(that.client.addjob(QUEUE, JSON.stringify(body), 0))
     .then(function(jobId) {
         that.emit('job:push', jobId, type);
-        return Q(jobId);
-    })
-    .catch(function(err) {
-        that.emit('error:push', type, err);
-        return Q.reject(err);
+        return jobId;
     });
 };
 
@@ -469,13 +444,10 @@ Tasqueue.prototype.delete = function(id) {
     var that = this;
     if (_.isArray(id)) return Q.all(_.map(id, that.removeJob));
 
-    return that.client.deljob(id)
+    return Q(that.client.deljob(id))
     .then(function() {
         that.emit('job:delete', id);
         return Q();
-    })
-    .catch(function(err) {
-        return Q.reject(err);
     });
 };
 
@@ -487,7 +459,7 @@ Tasqueue.prototype.cancel = function(id) {
     if (_.isArray(id)) return Q.all(_.map(id, that.cancelJob));
 
     // Päuse QUEUE queue to prevent GETJOB operations on this job
-    return that.client.pause(QUEUE, 'out')
+    return Q(that.client.pause(QUEUE, 'out'))
     .then(function() {
         return that.details(id);
     })
@@ -508,12 +480,12 @@ Tasqueue.prototype.cancel = function(id) {
             return that.deleteJob(id);
         })
         .then(function() {
-            return that.client.pause(QUEUE, 'none');
+            return Q(that.client.pause(QUEUE, 'none'));
         });
     })
-    .catch(function(err) {
+    .fail(function(err) {
         that.emit('error:cancel', id);
-        return that.client.pause(QUEUE, 'none');
+        return Q(that.client.pause(QUEUE, 'none'));
     });
 };
 
