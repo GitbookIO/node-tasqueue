@@ -18,6 +18,7 @@ function Tasqueue(opts) {
 
     // Default options
     opts = _.defaults(opts || {}, {
+        host: 'localhost',          // disque-server host
         port: 7711,                 // disque-server port
         pollDelay: 15*1000,         // Polling delay in ms when no workers are available
         jobTimeout: 60*60*1000,     // Timeout in ms before a job is considered as failed
@@ -27,6 +28,7 @@ function Tasqueue(opts) {
 
     // Other properties
     that.disquePort = opts.port;
+    that.disqueHost = opts.host;
     that.pollDelay = opts.pollDelay;
     that.jobTimeout = opts.jobTimeout;
     that.failedTTL = opts.failedTTL;
@@ -45,7 +47,7 @@ Tasqueue.prototype.init = function() {
     var that = this;
     var d = Q.defer();
 
-    that.client = disque.createClient(that.disquePort, { usePromise: true })
+    that.client = disque.createClient(that.disquePort, that.disqueHost, { usePromise: true })
     .on('connect', function() {
         that.running = true;
         d.resolve();
