@@ -442,7 +442,7 @@ Tasqueue.prototype.push = function(type, body) {
 // Utterly delete a job
 Tasqueue.prototype.delete = function(id) {
     var that = this;
-    if (_.isArray(id)) return Q.all(_.map(id, that.removeJob));
+    if (_.isArray(id)) return Q.all(_.map(id, that.delete));
 
     return Q(that.client.deljob(id))
     .then(function() {
