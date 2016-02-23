@@ -477,7 +477,7 @@ Tasqueue.prototype.cancel = function(id) {
         };
         return that.setAsFailed(job)
         .then(function() {
-            return that.deleteJob(id);
+            return that.delete(id);
         })
         .then(function() {
             return Q(that.client.pause(QUEUE, 'none'));
