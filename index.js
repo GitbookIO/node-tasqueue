@@ -83,6 +83,11 @@ Tasqueue.prototype.shutdown = function(n, cb) {
 Tasqueue.prototype.registerHandler = function(handler) {
     var that = this;
 
+    if (!!that.workers[handler.type]) {
+        that.emit('error:existing-handler', handler.type);
+        return;
+    }
+
     that.workers[handler.type] = {
         type: handler.type,
         current: 0,
