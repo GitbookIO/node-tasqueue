@@ -2,7 +2,10 @@
 var Q = require('q');
 var Tasqueue = require('../index');
 
-var tasqueue = new Tasqueue();
+var tasqueue = new Tasqueue({
+    host: 'localhost',
+    port: 7711
+});
 
 // var helloHandler = {
 //     concurrency: 10000,
@@ -30,7 +33,7 @@ var random = {
             var n = Math.random();
             if (n < 0.5) d.resolve();
             else d.reject(new Error('wrong number'));
-        }, 1);
+        }, 1000);
 
         return d.promise;
     }
@@ -77,12 +80,13 @@ tasqueue.on('client:connected', function() {
 })
 .on('job:success', function(jobId, jobType) {
     count++;
-    if (count % 1000 === 0) listAll(count);
+    console.log(count);
+    if (count % 100 === 0) listAll(count);
     // console.log('finished job '+jobId);
 })
 .on('job:fail', function(jobId, jobType, err) {
     count++;
-    if (count % 1000 === 0) listAll(count);
+    if (count % 100 === 0) listAll(count);
     // console.log('job '+jobId+' failed');
     // console.log(err.message);
     // console.log(err.stack);
@@ -90,13 +94,23 @@ tasqueue.on('client:connected', function() {
 
 // tasqueue.registerHandler(helloHandler);
 // tasqueue.registerHandler(hiHandler);
-tasqueue.registerHandler(random);
+tasqueue.init()
+.then(function() {
+    // Register handler for job:random
+    tasqueue.registerHandler(random);
 
-for (var i = 0; i < 50000; i++) {
-    // tasqueue.push('say:hello', { name: 'world' });
-    // tasqueue.push('say:hi', { name: 'world' });
-    tasqueue.push('job:random');
-}
+    // Launch polling
+    tasqueue.poll();
+
+    // Push list of jobs
+    for (var i = 0; i < 50000; i++) {
+        // tasqueue.push('say:hello', { name: 'world' });
+        // tasqueue.push('say:hi', { name: 'world' });
+        tasqueue.push('job:random');
+    }
+}, function(err) {
+    console.log(err);
+});
 
 function listAll(count) {
     Q.all([
