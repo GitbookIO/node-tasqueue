@@ -48,7 +48,6 @@ Tasqueue.prototype.init = function() {
     that.client = disque.createClient(that.disquePort, { usePromise: true })
     .on('connect', function() {
         that.running = true;
-        that.poll();
         d.resolve();
     })
     .on('error', function(err) {
