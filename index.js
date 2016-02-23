@@ -25,18 +25,8 @@ function Tasqueue(opts) {
         completedTTL: 3*24*60*60    // Completed jobs TTL in sec
     });
 
-    // Initialize disque client
-    that.client = disque.createClient(opts.port, { usePromise: true })
-    .on('connect', function() {
-        that.emit('client:connected');
-        that.running = true;
-        that.poll();
-    })
-    .on('error', function(err) {
-        that.emit('client:error', err);
-    });
-
     // Other properties
+    that.disquePort = opts.port;
     that.pollDelay = opts.pollDelay;
     that.jobTimeout = opts.jobTimeout;
     that.failedTTL = opts.failedTTL;
@@ -49,6 +39,24 @@ function Tasqueue(opts) {
 
 // Event emitter inheritance
 util.inherits(Tasqueue, EventEmitter);
+
+// Init connection to disque
+Tasqueue.prototype.init = function() {
+    var that = this;
+    var d = Q.defer();
+
+    that.client = disque.createClient(that.disquePort, { usePromise: true })
+    .on('connect', function() {
+        that.running = true;
+        that.poll();
+        d.resolve();
+    })
+    .on('error', function(err) {
+        d.reject(err);
+    });
+
+    return d.promise;
+};
 
 // Shutdown the client
 Tasqueue.prototype.shutdown = function(n, cb) {
