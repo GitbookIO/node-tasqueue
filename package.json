@@ -9,7 +9,7 @@
       "lodash": "4.3.0",
       "q": "1.4.1",
       "q-plus": "0.0.8",
-      "thunk-disque": "0.3.0"
+      "thunk-disque": "0.5.0"
   },
   "devDependencies": {
       "mocha": "2.3.4",
