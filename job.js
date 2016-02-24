@@ -154,13 +154,13 @@ Job.prototype.getError = function() {
  */
 
 // Acknowledge job to disque then push to completed queue
-Job.prototype.acknowledge = function(result) {
+Job.prototype.acknowledge = function(result, duration) {
     var that = this;
 
     that.tasqueue.emit('job:success', that.id, that.getType());
     return Q(that.tasqueue.client.fastack(that.id))
     .then(function() {
-        return that.setAsCompleted(result);
+        return that.setAsCompleted(result, duration);
     });
 };
 
