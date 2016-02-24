@@ -123,12 +123,13 @@ Job.prototype.failed = function(err, duration) {
 };
 
 // Utterly delete a job
-Job.prototype.delete = function() {
+Job.prototype.delete = function(emit) {
     var that = this;
 
+    emit = emit || true;
     return Q(that.tasqueue.client.deljob(that.id))
     .then(function() {
-        that.tasqueue.emit('job:delete', that.id);
+        if (emit) that.tasqueue.emit('job:delete', that.id);
         return Q();
     });
 };
@@ -166,31 +167,41 @@ Job.prototype.cancel = function(force) {
 
 // Base function to push a job to the COMPLETED queue
 Job.prototype.setAsCompleted = function(result, duration) {
+    var that = this;
+
     // Add created and ended times to body
-    this.body._created = this.getCreationDate();
-    this.body._ended = new Date();
-    this.body._duration = duration;
+    that.body._created = that.getCreationDate();
+    that.body._ended = new Date();
+    that.body._duration = duration;
 
     // Add result to body
-    this.body._result = result;
+    that.body._result = result;
 
-    return Q(this.tasqueue.client.addjob(config.COMPLETED, JSON.stringify(this.body), 0, 'TTL', this.tasqueue.opts.completedTTL));
+    return Q(that.tasqueue.client.addjob(config.COMPLETED, JSON.stringify(that.body), 0, 'TTL', that.tasqueue.opts.completedTTL))
+    .then(function() {
+        return that.delete(false);
+    });
 };
 
 // Base function to push a job to the FAILED queue
 Job.prototype.setAsFailed = function(err, duration) {
+    var that = this;
+
     // Add created and ended times to body
-    this.body._created = this.getCreationDate();
-    this.body._ended = new Date();
-    this.body._duration = duration;
+    that.body._created = that.getCreationDate();
+    that.body._ended = new Date();
+    that.body._duration = duration;
 
     // Add error info to body
-    this.body._error = {
+    that.body._error = {
         message: err.message,
         stack: err.stack
     };
 
-    return Q(this.tasqueue.client.addjob(config.FAILED, JSON.stringify(this.body), 0, 'TTL', this.tasqueue.opts.failedTTL));
+    return Q(that.tasqueue.client.addjob(config.FAILED, JSON.stringify(that.body), 0, 'TTL', that.tasqueue.opts.failedTTL))
+    .then(function() {
+        return that.delete(false);
+    });
 };
 
 module.exports = Job;
