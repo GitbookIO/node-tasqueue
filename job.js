@@ -2,21 +2,92 @@ var _ = require('lodash');
 var Q = require('q');
 var config = require('./config');
 
-function Job(tasqueue) {
-    this.tasqueue = tasqueue;
+/**
+ *  CONSTRUCTOR
+ */
+
+// Create a new Job and extend with disque SHOW details
+function Job(tasqueue, details) {
+    var that = this;
+
+    that.tasqueue = tasqueue;
+
+    // Extend job with disque details
+    _.forIn(details, function(v, k) {
+        that[k] = v;
+    });
+
+    // Parse job body as pure JS
+    that.body = JSON.parse(that.body);
 }
 
-// Format a job obtained from a queue with GETJOB
-Job.fromQueue = function fromQueue(tasqueue, infos) {
-    var job = new Job(tasqueue);
 
-    job.id = infos[1];
-    job.body = JSON.parse(infos[2]);
-    job.nacks = infos[4];
-    job.additionalDeliveries = infos[6];
+/**
+ *  JOBS API
+ */
 
-    return job;
+// Return pretty informations about this job
+Job.prototype.details = function() {
+    return {
+        id: this.id,
+        type: this.getType(),
+        body: this.getBody(),
+        state: this.getState(),
+        created: this.getCreationDate(),
+        ended: this.getEndDate(),
+        duration: this.getDuration(),
+        result: this.getResult(),
+        error: this.getError()
+    };
 };
+
+// Cancel a job -> move to failed queue
+// Error if job is not 'queued' in QUEUE
+Job.prototype.cancel = function(force) {
+    var that = this;
+
+    // Force cancelation of a job that is not queued
+    force = force || false;
+
+    // Pause QUEUE queue to prevent GETJOB operations on this job
+    return Q(that.tasqueue.client.pause(config.QUEUE, 'out'))
+    .then(function() {
+        if (!force && (that.queue !== config.QUEUE || that.state !== 'queued')) {
+            throw new Error('Only queued jobs may be cancelled');
+        }
+
+        that.tasqueue.emit('job:cancel', that.id);
+
+        return that.setAsFailed(new Error('Canceled'), that.getDuration())
+        .then(function() {
+            return that.delete();
+        })
+        .then(function() {
+            return Q(that.tasqueue.client.pause(config.QUEUE, 'none'));
+        });
+    })
+    .fail(function(err) {
+        that.tasqueue.emit('error:cancel', that.id);
+        return Q(that.tasqueue.client.pause(config.QUEUE, 'none'));
+    });
+};
+
+// Utterly delete a job
+Job.prototype.delete = function(emit) {
+    var that = this;
+
+    emit = emit || true;
+    return Q(that.tasqueue.client.deljob(that.id))
+    .then(function() {
+        if (emit) that.tasqueue.emit('job:delete', that.id);
+        return Q();
+    });
+};
+
+
+/**
+ *  COMPUTED PROPERTIES
+ */
 
 // Return a job's type stored in body
 Job.prototype.getType = function() {
@@ -46,7 +117,7 @@ Job.prototype.getCreationDate = function() {
     if (this.queue !== config.QUEUE) return this.body._created;
 
     // For queued jobs, use ctime (stored in nanosecs)
-    return Math.floor(this.ctime / 1000000);
+    return new Date(Math.floor(this.ctime / 1000000));
 };
 
 // Return a job's end date based on its queue and state
@@ -55,7 +126,7 @@ Job.prototype.getEndDate = function() {
     if (this.queue !== config.QUEUE) return this.body._ended;
 
     // For queued jobs, return now
-    else return Date.now();
+    else return new Date();
 };
 
 // Return a job's duration based on its queue and state
@@ -69,7 +140,7 @@ Job.prototype.getDuration = function() {
 
 // Return a job's result if any
 Job.prototype.getResult = function() {
-    return this.queue === config.COMPLETED? this.body._result : null;
+    return this.queue === config.COMPLETED && this.body._result? this.body._result : null;
 };
 
 // Return a job's error if any
@@ -77,20 +148,10 @@ Job.prototype.getError = function() {
     return this.queue === config.FAILED? this.body._error : null;
 };
 
-// Return pretty informations for this job
-Job.prototype.details = function() {
-    return {
-        id: this.id,
-        type: this.getType(),
-        body: this.getBody(),
-        state: this.getState(),
-        created: this.getCreationDate(),
-        ended: this.getEndDate(),
-        duration: this.getDuration(),
-        result: this.getResult(),
-        error: this.getError()
-    };
-};
+
+/**
+ *  INTERNAL DISQUE MANAGEMENT FOR JOBS
+ */
 
 // Acknowledge job to disque then push to completed queue
 Job.prototype.acknowledge = function(result) {
@@ -120,49 +181,6 @@ Job.prototype.failed = function(err, duration) {
         that.tasqueue.emit('job:requeue', that.id, that.getType(), that.nacks+1);
         return Q(that.client.nack(that.id));
     }
-};
-
-// Utterly delete a job
-Job.prototype.delete = function(emit) {
-    var that = this;
-
-    emit = emit || true;
-    return Q(that.tasqueue.client.deljob(that.id))
-    .then(function() {
-        if (emit) that.tasqueue.emit('job:delete', that.id);
-        return Q();
-    });
-};
-
-// Cancel a job -> move to failed queue
-// Error if job is not 'queued' in QUEUE
-Job.prototype.cancel = function(force) {
-    var that = this;
-
-    // Force cancelation of a job that is not queued
-    force = force || false;
-
-    // Päuse QUEUE queue to prevent GETJOB operations on this job
-    return Q(that.tasqueue.client.pause(config.QUEUE, 'out'))
-    .then(function() {
-        if (!force && (that.queue !== config.QUEUE || that.state !== 'queued')) {
-            throw new Error('Only queued jobs may be cancelled');
-        }
-
-        that.tasqueue.emit('job:cancel', that.id);
-
-        return that.setAsFailed(new Error('Canceled'), that.getDuration())
-        .then(function() {
-            return that.delete();
-        })
-        .then(function() {
-            return Q(that.tasqueue.client.pause(config.QUEUE, 'none'));
-        });
-    })
-    .fail(function(err) {
-        that.tasqueue.emit('error:cancel', that.id);
-        return Q(that.tasqueue.client.pause(config.QUEUE, 'none'));
-    });
 };
 
 // Base function to push a job to the COMPLETED queue
@@ -202,6 +220,19 @@ Job.prototype.setAsFailed = function(err, duration) {
     .then(function() {
         return that.delete(false);
     });
+};
+
+// Map results of a disque JSCAN occurence to a new Job
+Job.fromJSCAN = function(tasqueue, infos) {
+    // Map job info from JSCAN result
+    var _job = {};
+    for (var i = 0; i < infos.length; i+=2) {
+        _job[infos[i]] = infos[i+1];
+    }
+
+    // Create an actual Job object and return details
+    var job = new Job(tasqueue, _job);
+    return job.details();
 };
 
 module.exports = Job;
