@@ -106,7 +106,11 @@ Tasqueue.prototype.poll = function() {
         .map('type')
         .value();
 
-    that.emit('client:polling', types.length, availableWorkers, nWorkers);
+    that.emit('client:polling', {
+        types: types.length,
+        availableWorkers: availableWorkers,
+        totalWorkers: nWorkers
+    });
     Q(that.client.getjob(['NOHANG', 'WITHCOUNTERS', 'FROM', config.QUEUE]))
     .then(function(res) {
         // No job available, reset TIMEOUT
@@ -130,7 +134,10 @@ Tasqueue.prototype.poll = function() {
             if (!worker) return that.poll();
 
             // Process job
-            that.emit('job:start', job.id, job.getType());
+            that.emit('job:start', {
+                id: job.id,
+                type: job.getType()
+            });
 
             worker.processJob(job)
             .then(function() {
@@ -160,12 +167,16 @@ Tasqueue.prototype.registerHandler = function(handler) {
     var that = this;
 
     if (!!that.workers[handler.type]) {
-        that.emit('error:existing-handler', handler.type);
+        that.emit('error:existing-handler', new Error('Handler already registered for type '+handler.type), {
+            type: handler.type
+        });
         return;
     }
 
     that.workers[handler.type] = new Worker(that, handler);
-    that.emit('handler:register', handler.type);
+    that.emit('handler:register', {
+        type: handler.type
+    });
 };
 
 // Get a list of handled types
@@ -185,7 +196,11 @@ Tasqueue.prototype.pushJob = function(type, body) {
 
     return Q(that.client.addjob(config.QUEUE, JSON.stringify(body), 0, 'TTL', that.opts.queuedTTL))
     .then(function(jobId) {
-        that.emit('job:push', jobId, type);
+        that.emit('job:push', {
+            id: jobId,
+            type: type
+        });
+
         return jobId;
     });
 };
@@ -300,7 +315,9 @@ Tasqueue.prototype.delayPoll = function() {
     // Delay already called
     if (that.pollTimeout) return;
 
-    that.emit('client:delaying', that.opts.pollDelay);
+    that.emit('client:delaying', {
+        delay: that.opts.pollDelay
+    });
     // Reset polling delay
     that.pollTimeout = setTimeout(function() {
         that.pollTimeout = null;
@@ -318,7 +335,11 @@ Tasqueue.prototype.getWorkerForJob = function(job) {
     // No registered handler for this type
     // Mark job as failed
     if (!worker) {
-        that.emit('job:nohandler', job.id, job.getType());
+        that.emit('job:nohandler', {
+            id: job.id,
+            type: job.getType()
+        });
+
         return job.cancel(true)
         .then(function() {
             return null;
@@ -328,7 +349,10 @@ Tasqueue.prototype.getWorkerForJob = function(job) {
     // No available worker for this job
     // Requeue job
     if (!worker.isAvailable()) {
-        that.emit('job:requeue', job.id, job.getType());
+        that.emit('job:requeue', {
+            id: job.id,
+            type: job.getType()
+        });
 
         return Q(that.client.enqueue(job.id))
         .then(function() {

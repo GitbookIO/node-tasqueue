@@ -56,7 +56,10 @@ Job.prototype.cancel = function(force) {
             throw new Error('Only queued jobs may be cancelled');
         }
 
-        that.tasqueue.emit('job:cancel', that.id);
+        that.tasqueue.emit('job:cancel', {
+            id: that.id,
+            type: that.getType()
+        });
 
         return that.setAsFailed(new Error('Canceled'), that.getDuration())
         .then(function() {
@@ -67,7 +70,10 @@ Job.prototype.cancel = function(force) {
         });
     })
     .fail(function(err) {
-        that.tasqueue.emit('error:cancel', that.id);
+        that.tasqueue.emit('error:cancel', err, {
+            id: that.id,
+            type: that.getType()
+        });
         return Q(that.tasqueue.client.pause(config.QUEUE, 'none'));
     });
 };
@@ -79,7 +85,12 @@ Job.prototype.delete = function(emit) {
     emit = emit || true;
     return Q(that.tasqueue.client.deljob(that.id))
     .then(function() {
-        if (emit) that.tasqueue.emit('job:delete', that.id);
+        if (emit) {
+            that.tasqueue.emit('job:delete', {
+                id: that.id,
+                type: that.getType()
+            });
+        }
         return Q();
     });
 };
@@ -157,7 +168,11 @@ Job.prototype.getError = function() {
 Job.prototype.acknowledge = function(result, duration) {
     var that = this;
 
-    that.tasqueue.emit('job:success', that.id, that.getType());
+    that.tasqueue.emit('job:success', {
+        id: that.id,
+        type: that.getType()
+    });
+
     return Q(that.tasqueue.client.fastack(that.id))
     .then(function() {
         return that.setAsCompleted(result, duration);
@@ -173,12 +188,22 @@ Job.prototype.failed = function(err, duration) {
 
     // Too many nacks, push to failed queue
     if ((that.nacks+1) >= maxAttemps) {
-        that.tasqueue.emit('job:fail', that.id, that.getType(), err);
+        that.tasqueue.emit('job:fail', {
+            id: that.id,
+            type: that.getType(),
+            error: err
+        });
+
         return that.setAsFailed(err, duration);
     }
     // Requeue job
     else {
-        that.tasqueue.emit('job:requeue', that.id, that.getType(), that.nacks+1);
+        that.tasqueue.emit('job:requeue', {
+            id: that.id,
+            type: that.getType(),
+            attempts: that.nacks+1
+        });
+
         return Q(that.client.nack(that.id));
     }
 };
