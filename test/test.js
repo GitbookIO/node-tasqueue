@@ -24,6 +24,8 @@ var random = {
 };
 
 var count = 0;
+var id = null;
+var print = false;
 
 tasqueue.on('client:connected', function() {
     console.log('connected to client');
@@ -44,7 +46,10 @@ tasqueue.on('client:connected', function() {
     console.log('no registered handler for job '+jobId+' of type '+jobType);
 })
 .on('job:push', function(jobId, jobType) {
-    // console.log('pushed job of type '+jobType+' with id '+jobId);
+    if (!id) {
+        id = jobId;
+        console.log('pushed job of type '+jobType+' with id '+jobId);
+    }
 })
 .on('error:push', function(jobType, err) {
     console.log('error pushing job of type '+jobType);
@@ -55,7 +60,14 @@ tasqueue.on('client:connected', function() {
     // console.log('requeueing job '+jobId+': no available workers for type '+jobType);
 })
 .on('job:start', function(jobId, jobType) {
-    // console.log('starting job '+jobId+' of type '+jobType);
+    if (jobId === id) {
+        console.log('starting job '+jobId+' of type '+jobType);
+        tasqueue.getJob(id)
+        .then(function(job) {
+            console.log('Details for '+job.id);
+            console.log(job.details());
+        });
+    }
 })
 .on('job:error', function(jobId, jobType, err) {
     console.log('error with job '+jobId+' of type '+jobType);
@@ -81,7 +93,17 @@ tasqueue.init()
 
     // Push list of jobs
     for (var i = 0; i < 50000; i++) {
-        tasqueue.push('job:random');
+        tasqueue.pushJob('job:random')
+        .then(function() {
+            if (!!id && !print) {
+                print = true;
+                tasqueue.getJob(id)
+                .then(function(job) {
+                    console.log('Details for '+job.id);
+                    console.log(job.details());
+                });
+            }
+        });
     }
 }, function(err) {
     console.log(err);
