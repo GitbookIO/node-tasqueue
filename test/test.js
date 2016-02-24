@@ -24,6 +24,7 @@ var random = {
 };
 
 var count = 0;
+var countPushed = 0;
 var id = null;
 var print = false;
 
@@ -34,10 +35,10 @@ tasqueue.on('client:connected', function() {
     console.log('registered handler for '+type);
 })
 .on('client:delaying', function(delay) {
-    // console.log('delay polling by '+delay+' ms');
+    console.log('delay polling by '+delay+' ms');
 })
 .on('client:noworkers', function() {
-    // console.log('no workers available...');
+    console.log('no workers available...');
 })
 .on('client:polling', function(nbTypes, availableWorkers, totalWorkers) {
     // console.log('polling '+nbTypes+' types with '+availableWorkers+'/'+totalWorkers+' available workers');
@@ -60,6 +61,7 @@ tasqueue.on('client:connected', function() {
     // console.log('requeueing job '+jobId+': no available workers for type '+jobType);
 })
 .on('job:start', function(jobId, jobType) {
+    // console.log('starting job '+jobId+' of type '+jobType);
     if (jobId === id) {
         console.log('starting job '+jobId+' of type '+jobType);
         tasqueue.getJob(id)
@@ -77,10 +79,26 @@ tasqueue.on('client:connected', function() {
 .on('job:success', function(jobId, jobType) {
     count++;
     if (count % 100 === 0) listAll(count);
+    if (jobId === id) {
+        console.log('job '+jobId+' was successful');
+        tasqueue.getJob(id)
+        .then(function(job) {
+            console.log('Details for '+job.id);
+            console.log(job.details());
+        });
+    }
 })
 .on('job:fail', function(jobId, jobType, err) {
     count++;
     if (count % 100 === 0) listAll(count);
+    if (jobId === id) {
+        console.log('job '+jobId+' failed');
+        tasqueue.getJob(id)
+        .then(function(job) {
+            console.log('Details for '+job.id);
+            console.log(job.details());
+        });
+    }
 });
 
 tasqueue.init()
@@ -95,6 +113,8 @@ tasqueue.init()
     for (var i = 0; i < 50000; i++) {
         tasqueue.pushJob('job:random')
         .then(function() {
+            countPushed++;
+            if (countPushed % 10000 === 0) console.log('pushed: '+countPushed);
             if (!!id && !print) {
                 print = true;
                 tasqueue.getJob(id)
@@ -117,14 +137,17 @@ function listAll(count) {
         tasqueue.countCompleted(),
         tasqueue.countFailed(),
         tasqueue.countQueued(),
-        tasqueue.countActive()
+        tasqueue.countActive(),
+        tasqueue.listQueued({ start: 0, limit: 5 })
     ])
-    .spread(function(completed, failed, queued, active) {
+    .spread(function(completed, failed, queued, active, queuedList) {
         console.log('**********');
         console.log('Reached: '+count);
         console.log('completed: '+completed);
         console.log('failed: '+failed);
         console.log('queued: '+queued);
         console.log('active: '+active);
+        console.log('*** Queued list:');
+        console.log(queuedList);
     });
 }
