@@ -3,6 +3,10 @@ var domain = require('domain');
 var _ = require('lodash');
 var Q = require('q');
 
+/**
+ *  CONSTRUCTOR
+ */
+
 function Worker(tasqueue, handler) {
     var that = this;
 
@@ -43,6 +47,11 @@ function Worker(tasqueue, handler) {
     };
 }
 
+
+/**
+ *  API FOR TASQUEUE
+ */
+
 // Process a job
 Worker.prototype.processJob = function(job) {
     var that = this;
@@ -54,21 +63,6 @@ Worker.prototype.processJob = function(job) {
     })
     .fin(function() {
         delete that.processing[job.id];
-    });
-};
-
-// Wrap job processing with exec function
-Worker.prototype.wrapJobprocess = function(job, exec) {
-    var startTime = Date.now();
-
-    return Q(exec)
-    .timeout(job.tasqueue.opts.jobTimeout, 'took longer than '+Math.ceil(job.tasqueue.opts.jobTimeout/1000)+' seconds to process')
-    .then(function(result) {
-        var duration = Date.now() - startTime;
-        return job.acknowledge(result, duration);
-    }, function(err) {
-        var duration = Date.now() - startTime;
-        return job.failed(err, duration);
     });
 };
 
@@ -85,6 +79,26 @@ Worker.prototype.countAvailable = function() {
 // Check if a worker is available to work
 Worker.prototype.isAvailable = function() {
     return this.concurrency > this.countProcessing();
+};
+
+
+/**
+ *  INTERNAL UTILITY FUNCTIONS
+ */
+
+// Wrap job processing with exec function
+Worker.prototype.wrapJobprocess = function(job, exec) {
+    var startTime = Date.now();
+
+    return Q(exec)
+    .timeout(job.tasqueue.opts.jobTimeout, 'took longer than '+Math.ceil(job.tasqueue.opts.jobTimeout/1000)+' seconds to process')
+    .then(function(result) {
+        var duration = Date.now() - startTime;
+        return job.acknowledge(result, duration);
+    }, function(err) {
+        var duration = Date.now() - startTime;
+        return job.failed(err, duration);
+    });
 };
 
 module.exports = Worker;
