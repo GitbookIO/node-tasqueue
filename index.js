@@ -21,17 +21,17 @@ function Tasqueue(opts) {
 
     // Default options
     that.opts = _.defaults(opts || {}, {
-        host: 'localhost',          // disque-server host
-        port: 7711,                 // disque-server port
-        pollDelay: 15*1000,         // Polling delay in ms when no workers are available
-        jobTimeout: 60*60*1000,     // Timeout in ms before a job is considered as failed
-        queuedTTL: 3*24*60*60,      // Queued jobs TTL in sec
-        failedTTL: 24*60*60,        // Failed jobs TTL in sec
-        completedTTL: 24*60*60      // Completed jobs TTL in sec
+        host:           'localhost',    // disque-server host
+        port:           7711,           // disque-server port
+        pollDelay:      15*1000,        // Polling delay in ms when no workers are available
+        jobTimeout:     60*60*1000,     // Timeout in ms before a job is considered as failed
+        queuedTTL:      3*24*60*60,     // Queued jobs TTL in sec
+        failedTTL:      24*60*60,       // Failed jobs TTL in sec
+        completedTTL:   24*60*60        // Completed jobs TTL in sec
     });
 
-    that.pollTimeout = null;
-    that.workers = {};
+    that.pollTimeout =  null;
+    that.workers =      {};
 }
 
 // Event emitter inheritance
@@ -44,10 +44,12 @@ util.inherits(Tasqueue, EventEmitter);
 
 // Initialize connection to disque
 Tasqueue.prototype.init = function() {
-    var that = this;
-    var d = Q.defer();
+    var that =  this;
+    var d =     Q.defer();
 
-    that.client = disque.createClient(that.opts.port, that.opts.host, { usePromise: true })
+    that.client = disque.createClient(that.opts.port, that.opts.host, {
+        usePromise: true
+    })
     .on('connect', function() {
         that.running = true;
         d.resolve();
@@ -61,8 +63,8 @@ Tasqueue.prototype.init = function() {
 
 // Shutdown disque client and execute cb()
 Tasqueue.prototype.shutdown = function(n, cb) {
-    var that = this;
-    that.running = false;
+    var that =      this;
+    that.running =  false;
 
     // Get all jobs being processed
     var processing = that.getProcessingJobs();
@@ -75,6 +77,7 @@ Tasqueue.prototype.shutdown = function(n, cb) {
 
     // Maximum wait
     var timeout = setTimeout(cb, n);
+
     return Q.all(_.values(processing))
     .fin(function() {
         clearTimeout(timeout);
@@ -89,8 +92,8 @@ Tasqueue.prototype.poll = function() {
     if (!that.running) return;
 
     // Check number of available workers
-    var nWorkers = 0;
-    var availableWorkers = that.countAvailableWorkers();
+    var nWorkers =          0;
+    var availableWorkers =  that.countAvailableWorkers();
 
     if (availableWorkers <= 0) {
         that.emit('client:no-workers');
@@ -107,18 +110,23 @@ Tasqueue.prototype.poll = function() {
         .value();
 
     that.emit('client:polling', {
-        types: types.length,
-        availableWorkers: availableWorkers,
-        totalWorkers: nWorkers
+        types:              types.length,
+        availableWorkers:   availableWorkers,
+        totalWorkers:       nWorkers
     });
-    Q(that.client.getjob(['NOHANG', 'WITHCOUNTERS', 'FROM', config.QUEUE]))
+
+    Q(that.client.getjob([
+        'NOHANG',
+        'WITHCOUNTERS',
+        'FROM', config.QUEUE
+    ]))
     .then(function(res) {
         // No job available, reset TIMEOUT
         if (!res) return that.delayPoll();
 
         // Get jobId from result
-        res = res.length > 0? res[0] : null;
-        var jobId = res[1];
+        res =       (res.length > 0)? res[0] : null;
+        var jobId = (res.length > 0)? res[1] : null;
 
         // Reference to the job
         var job = null;
@@ -126,17 +134,18 @@ Tasqueue.prototype.poll = function() {
         // Get corresponding Job
         return that.getJob(jobId)
         .then(function(_job) {
-            job = _job;
             // Get a worker for this job
+            job = _job;
             return that.getWorkerForJob(job);
         })
         .then(function(worker) {
+            // No worker, relaunch polling
             if (!worker) return that.poll();
 
             // Process job
             that.emit('job:start', {
-                id: job.id,
-                type: job.getType()
+                id:     job.id,
+                type:   job.getType()
             });
 
             worker.processJob(job)
@@ -146,8 +155,12 @@ Tasqueue.prototype.poll = function() {
 
             // There are maybe other jobs pending,
             // and we still have concurrent workers available
-            if (that.countAvailableWorkers() > 0) return that.poll();
-            else return that.delayPoll();
+            if (that.countAvailableWorkers() > 0) {
+                return that.poll();
+            }
+            else {
+                return that.delayPoll();
+            }
         });
 
     })
@@ -197,8 +210,8 @@ Tasqueue.prototype.pushJob = function(type, body) {
     return Q(that.client.addjob(config.QUEUE, JSON.stringify(body), 0, 'TTL', that.opts.queuedTTL))
     .then(function(jobId) {
         that.emit('job:push', {
-            id: jobId,
-            type: type
+            id:     jobId,
+            type:   type
         });
 
         return jobId;
@@ -211,7 +224,9 @@ Tasqueue.prototype.getJob = function(id) {
 
     return Q(that.client.show(id))
     .then(function(_job) {
-        if (!_job) return Q.reject('job doesn\'t exist');
+        if (!_job) {
+            return Q.reject('job doesn\'t exist');
+        }
 
         return new Job(that, _job);
     });
@@ -219,23 +234,55 @@ Tasqueue.prototype.getJob = function(id) {
 
 // Base list function
 // Takes state = 'active' (default), 'queued', 'failed', 'completed'
-Tasqueue.prototype.list = function(state, opts) {
+Tasqueue.prototype.list = function(state, opts, _result) {
     var that = this;
 
+    // Tolerance for the result list length against opts.limit
+    var TOLERANCE = 0.8;
+
+    // Default options
     state = state || 'active';
     opts = _.defaults(opts || {}, {
-        start: 0,
-        limit: 100
+        cursor: 0,
+        limit:  100,
+        next:   null
     });
 
-    var params = (state === 'active' || state === 'queued')? ['QUEUE', config.QUEUE, 'STATE', state] :
-        (state === 'failed')? ['QUEUE', config.FAILED] :
-        ['QUEUE', config.COMPLETED];
+    // Construct query for JSCAN
+    var params =    (state === 'active' || state === 'queued')? ['QUEUE', config.QUEUE, 'STATE', state] :
+                    (state === 'failed')?                       ['QUEUE', config.FAILED] :
+                                                                ['QUEUE', config.COMPLETED];
 
-    var query = [opts.start, 'COUNT', opts.limit, 'REPLY', 'all'].concat(params);
+    var query = [
+        opts.cursor,
+        'COUNT', opts.limit,
+        'REPLY', 'all'
+    ].concat(params);
+
+    // Memoize result
+    _result = _result || [];
+
     return Q(that.client.jscan(query))
     .then(function(res) {
-        return res[1].map(_.partial(Job.fromJSCAN, that));
+        // Update _result
+        _result = _result.concat(res[1].map(_.partial(Job.fromJSCAN, that)));
+
+        // Get next cursor
+        opts.next = Number(res[0]);
+        if (opts.next === 0) {
+            opts.next = null;
+        }
+
+        // Recursive call when not enough results while there is still a next cursor
+        if (!!opts.next && _result.length < opts.limit * TOLERANCE) {
+            // Update cursor
+            opts.cursor = opts.next;
+            return that.list(state, opts, _result, false);
+        }
+        else return {
+            next: opts.next,
+            list: _result
+        };
     });
 };
 
@@ -247,16 +294,23 @@ Tasqueue.prototype.list = function(state, opts) {
 Tasqueue.prototype.count = function(state, opts) {
     state = state || 'active';
 
-    if (state === 'failed') return this.countFailed();
-    if (state === 'completed') return this.countCompleted();
+    if (state === 'failed')     return this.countFailed();
+    if (state === 'completed')  return this.countCompleted();
 
     opts = _.defaults(opts || {}, {
-        limit: 100,
-        all: false
+        limit:  100,
+        all:    false
     });
 
-    var query = ['COUNT', opts.limit, 'QUEUE', config.QUEUE, 'STATE', state, 'REPLY', 'all'];
-    if (opts.all) query.push('BUSYLOOP');
+    var query = [
+        'COUNT', opts.limit,
+        'QUEUE', config.QUEUE,
+        'STATE', state
+    ];
+
+    if (opts.all) {
+        query.push('BUSYLOOP');
+    }
 
     return Q(this.client.jscan(query))
     .then(function(res) {
@@ -336,8 +390,8 @@ Tasqueue.prototype.getWorkerForJob = function(job) {
     // Mark job as failed
     if (!worker) {
         that.emit('job:nohandler', {
-            id: job.id,
-            type: job.getType()
+            id:     job.id,
+            type:   job.getType()
         });
 
         return job.cancel(true)
@@ -350,8 +404,8 @@ Tasqueue.prototype.getWorkerForJob = function(job) {
     // Requeue job
     if (!worker.isAvailable()) {
         that.emit('job:requeue', {
-            id: job.id,
-            type: job.getType()
+            id:     job.id,
+            type:   job.getType()
         });
 
         return Q(that.client.enqueue(job.id))
