@@ -1,5 +1,6 @@
 module.exports = {
-    QUEUE: 'queue',           // Queue name for queued/active jobs
-    FAILED: 'failed',         // Queue name and TTL for failed jobs
-    COMPLETED: 'completed'    // Queue name and TTL for completed jobs
+    QUEUED:     'queued',   // Queue name for queued jobs
+    ACTIVE:     'active',   // Queue name for active jobs
+    FAILED:     'failed',   // Queue name for failed jobs
+    COMPLETED:  'completed' // Queue name for completed jobs
 };

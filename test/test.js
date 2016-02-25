@@ -9,15 +9,16 @@ var tasqueue = new Tasqueue({
 
 var random = {
     concurrency: 5,
+    maxAttemps: 3,
     type: 'job:random',
     exec: function(payload) {
         var d = Q.defer();
 
         setTimeout(function() {
             var n = Math.random();
-            if (n < 0.5) d.resolve();
+            if (n < 0.1) d.resolve();
             else d.reject(new Error('wrong number'));
-        }, 100);
+        }, 3000);
 
         return d.promise;
     }
@@ -31,26 +32,30 @@ var print = false;
 tasqueue.on('client:connected', function() {
     console.log('connected to client');
 })
-.on('handler:register', function(type) {
-    console.log('registered handler for '+type);
+.on('handler:register', function(handler) {
+    console.log('registered handler for '+handler.type);
 })
 .on('client:delaying', function(delay) {
-    console.log('delay polling by '+delay+' ms');
+    console.log('delay polling by '+delay.delay+' ms');
 })
 .on('client:noworkers', function() {
     console.log('no workers available...');
 })
-.on('client:polling', function(nbTypes, availableWorkers, totalWorkers) {
-    // console.log('polling '+nbTypes+' types with '+availableWorkers+'/'+totalWorkers+' available workers');
+.on('client:polling', function(data) {
+    console.log('polling '+data.types+' types with '+data.availableWorkers+'/'+data.totalWorkers+' available workers');
 })
-.on('job:nohandler', function(jobId, jobType) {
-    console.log('no registered handler for job '+jobId+' of type '+jobType);
+.on('job:nohandler', function(job) {
+    console.log('no registered handler for job '+job.id+' of type '+job.type);
 })
-.on('job:push', function(jobId, jobType) {
+.on('job:push', function(job) {
     if (!id) {
-        id = jobId;
-        console.log('pushed job of type '+jobType+' with id '+jobId);
+        id = job.id;
+        console.log('pushed job of type '+job.type+' with id '+job.id);
     }
+})
+.on('error:polling', function(err) {
+    console.log('error:polling');
+    console.log(err);
 })
 .on('error:push', function(jobType, err) {
     console.log('error pushing job of type '+jobType);
@@ -60,14 +65,14 @@ tasqueue.on('client:connected', function() {
 .on('job:requeue', function(jobId, jobType) {
     // console.log('requeueing job '+jobId+': no available workers for type '+jobType);
 })
-.on('job:start', function(jobId, jobType) {
-    // console.log('starting job '+jobId+' of type '+jobType);
-    if (jobId === id) {
-        console.log('starting job '+jobId+' of type '+jobType);
+.on('job:start', function(job) {
+    // console.log('starting job '+job.id+' of type '+job.type);
+    if (job.id === id) {
+        console.log('starting job '+job.id+' of type '+job.type);
         tasqueue.getJob(id)
-        .then(function(job) {
-            console.log('Details for '+job.id);
-            console.log(job.details());
+        .then(function(_job) {
+            console.log('Details for '+_job.id);
+            console.log(_job.details());
         });
     }
 })
@@ -76,27 +81,28 @@ tasqueue.on('client:connected', function() {
     console.log(err.message);
     console.log(err.stack);
 })
-.on('job:success', function(jobId, jobType) {
+.on('job:success', function(job) {
     count++;
+    console.log('count: '+count);
     if (count % 100 === 0) listAll(count);
-    if (jobId === id) {
-        console.log('job '+jobId+' was successful');
+    if (job.id === id) {
+        console.log('job '+job.id+' was successful');
         tasqueue.getJob(id)
-        .then(function(job) {
-            console.log('Details for '+job.id);
-            console.log(job.details());
+        .then(function(_job) {
+            console.log('Details for '+_job.id);
+            console.log(_job.details());
         });
     }
 })
-.on('job:fail', function(jobId, jobType, err) {
+.on('job:fail', function(job) {
     count++;
     if (count % 100 === 0) listAll(count);
-    if (jobId === id) {
-        console.log('job '+jobId+' failed');
+    if (job.id === id) {
+        console.log('job '+job.id+' failed');
         tasqueue.getJob(id)
-        .then(function(job) {
-            console.log('Details for '+job.id);
-            console.log(job.details());
+        .then(function(_job) {
+            console.log('Details for '+_job.id);
+            console.log(_job.details());
         });
     }
 });
@@ -110,20 +116,20 @@ tasqueue.init()
     tasqueue.poll();
 
     // Push list of jobs
-    for (var i = 0; i < 50000; i++) {
-        tasqueue.pushJob('job:random')
-        .then(function() {
-            countPushed++;
-            if (countPushed % 10000 === 0) console.log('pushed: '+countPushed);
-            if (!!id && !print) {
-                print = true;
-                tasqueue.getJob(id)
-                .then(function(job) {
-                    console.log('Details for '+job.id);
-                    console.log(job.details());
-                });
-            }
-        });
+    for (var i = 0; i < 20; i++) {
+        tasqueue.pushJob('job:random');
+//        .then(function() {
+//            countPushed++;
+//            if (countPushed % 10000 === 0) console.log('pushed: '+countPushed);
+//            if (!!id && !print) {
+//                print = true;
+//                tasqueue.getJob(id)
+//                .then(function(job) {
+//                    console.log('Details for '+job.id);
+//                    console.log(job.details());
+//                });
+//            }
+//        });
     }
 }, function(err) {
     console.log(err);
@@ -132,22 +138,38 @@ tasqueue.init()
     });
 });
 
+setInterval(function() {
+    tasqueue.listActive()
+    .then(function(activeList) {
+        console.log('**********');
+        console.log('***** active list: ');
+        activeList.map(function(job) { console.log(job.details()); });
+        console.log('**********');
+    });
+    tasqueue.countActive()
+    .then(function(activeCount) {
+        console.log('**********');
+        console.log('***** active count: ');
+        console.log(activeCount);
+        console.log('**********');
+    });
+}, 5000);
+
 function listAll(count) {
     Q.all([
         tasqueue.countCompleted(),
         tasqueue.countFailed(),
         tasqueue.countQueued(),
         tasqueue.countActive(),
-        tasqueue.listQueued({ start: 0, limit: 5 })
+        tasqueue.listActive()
     ])
-    .spread(function(completed, failed, queued, active, queuedList) {
+    .spread(function(completed, failed, queued, active, activeList) {
         console.log('**********');
         console.log('Reached: '+count);
         console.log('completed: '+completed);
         console.log('failed: '+failed);
         console.log('queued: '+queued);
         console.log('active: '+active);
-        console.log('*** Queued list:');
-        console.log(queuedList);
+        console.log('**********');
     });
 }
