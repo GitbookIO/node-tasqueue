@@ -5,10 +5,10 @@ var Q =             require('q-plus');
 var _ =             require('lodash');
 var disque =        require('thunk-disque');
 
-var Job =           require('./job');
-var Queue =         require('./queue');
-var Worker =        require('./worker');
-var config =        require('./config');
+var Job =           require('./lib/job');
+var Queue =         require('./lib/queue');
+var Worker =        require('./lib/worker');
+var config =        require('./lib/config');
 
 /**
  *  CONSTRUCTOR
