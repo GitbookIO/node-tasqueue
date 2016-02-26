@@ -341,7 +341,7 @@ Tasqueue.prototype.getWorkerForJob = function(job) {
     // No registered handler for this type
     // Mark job as failed
     if (!worker) {
-        that.emit('job:nohandler', {
+        that.emit('error:no-handler', new Error('No handler registered for type '+job.getType()), {
             id:     job.id,
             type:   job.getType()
         });
@@ -355,11 +355,6 @@ Tasqueue.prototype.getWorkerForJob = function(job) {
     // No available worker for this job
     // Requeue job
     if (!worker.isAvailable()) {
-        that.emit('job:requeue', {
-            id:     job.id,
-            type:   job.getType()
-        });
-
         return Q(that.client.enqueue(job.id))
         .then(function() {
             return null;
