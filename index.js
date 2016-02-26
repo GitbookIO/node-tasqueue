@@ -22,6 +22,7 @@ function Tasqueue(opts) {
 
     // Default options
     that.opts = _.defaults(opts || {}, {
+        authPass:       null,               // AUTH password for disque-server
         host:           'localhost',        // disque-server host
         port:           7711,               // disque-server port
         pollDelay:      1000 * 15,          // Polling delay in ms when no workers are available
@@ -51,6 +52,7 @@ Tasqueue.prototype.init = function() {
     var d =     Q.defer();
 
     that.client = disque.createClient(that.opts.port, that.opts.host, {
+        authPass:   that.opts.authPass,
         usePromise: true
     })
     .on('connect', function() {
