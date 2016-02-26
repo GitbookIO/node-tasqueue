@@ -270,6 +270,16 @@ Tasqueue.prototype.getJob = function(id) {
     });
 };
 
+// Count jobs by state
+Tasqueue.prototype.count = function(state) {
+    if (!state) return Q.reject(new Error('State must be provided as first argument for this function'));
+
+    var queue = this.queues[state];
+    if (!queue) return Q.reject(new Error('Invalid state for this request'));
+
+    return queue.length();
+};
+
 // Count completed jobs
 Tasqueue.prototype.countCompleted = function() {
     return this.queues[config.COMPLETED].length();
@@ -288,6 +298,16 @@ Tasqueue.prototype.countQueued = function(opts) {
 // Count active jobs
 Tasqueue.prototype.countActive = function(opts) {
     return this.queues[config.ACTIVE].length();
+};
+
+// List jobs by state
+Tasqueue.prototype.list = function(state, opts) {
+    if (!state) return Q.reject(new Error('State must be provided as first argument for this function'));
+
+    var queue = this.queues[state];
+    if (!queue) return Q.reject(new Error('Invalid state for this request'));
+
+    return queue.list(opts);
 };
 
 // List of completed jobs
