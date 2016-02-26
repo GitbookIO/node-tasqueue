@@ -139,11 +139,13 @@ tasqueue.init()
 });
 
 setInterval(function() {
-    tasqueue.listActive()
+    tasqueue.listActive({ start: 2, limit: 2 })
     .then(function(activeList) {
         console.log('**********');
         console.log('***** active list: ');
-        activeList.map(function(job) { console.log(job.details()); });
+        console.log('***** prev: '+activeList.prev);
+        console.log('***** next: '+activeList.next);
+        activeList.list.map(function(job) { console.log(job.details()); });
         console.log('**********');
     });
     tasqueue.countActive()

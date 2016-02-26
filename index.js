@@ -292,22 +292,22 @@ Tasqueue.prototype.countActive = function(opts) {
 
 // List of completed jobs
 Tasqueue.prototype.listCompleted = function(opts) {
-    return this.queues[config.COMPLETED].list();
+    return this.queues[config.COMPLETED].list(opts);
 };
 
 // List of failed jobs
 Tasqueue.prototype.listFailed = function(opts) {
-    return this.queues[config.FAILED].list();
+    return this.queues[config.FAILED].list(opts);
 };
 
 // List of queued jobs
 Tasqueue.prototype.listQueued = function(opts) {
-    return this.queues[config.QUEUED].list();
+    return this.queues[config.QUEUED].list(opts);
 };
 
 // List of active jobs
 Tasqueue.prototype.listActive = function(opts) {
-    return this.queues[config.ACTIVE].list();
+    return this.queues[config.ACTIVE].list(opts);
 };
 
 

@@ -99,11 +99,21 @@ Queue.prototype.list = function(opts) {
 
     // Default options
     opts = _.defaults(opts || {}, {
+        start: 0,
         limit: 100
     });
 
+    // While waiting for QPEEK to have a CURSOR option
+    // Compute limit based on start
+    opts.limit += opts.start;
+
     return Q(that.tasqueue.client.qpeek(that.name, opts.limit))
     .then(function(res) {
+        // Slice res to obtain real result
+        res = res.slice(opts.start, opts.limit);
+        // Reset opts.limit to its initial value
+        opts.limit -= opts.start;
+
         // Get the jobs ids
         var ids = _.chain(res)
             .map(function(jobInfos) {
@@ -124,8 +134,15 @@ Queue.prototype.list = function(opts) {
             });
         })
         .then(function() {
-            // Return the list
-            return list;
+            // Create cursors based on the list length
+            var prev = (!!res.length && opts.start > 0)?    Math.max(opts.start - opts.limit, 0) : null;
+            var next = (res.length === opts.limit)?         opts.start + opts.limit : null;
+            // Return list and cursors
+            return {
+                prev: prev,
+                next: next,
+                list: list
+            };
         });
     });
 };
