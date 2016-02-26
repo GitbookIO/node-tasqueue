@@ -292,16 +292,15 @@ emit('job:success', {
 
 ###### Job failed
 ```JavaScript
-emit('error:job-failed', {
+emit('error:job-failed', error, {
     id:    {String}, // The job id
-    type:  {String}, // The job type
-    error: {Error}   // Reason
+    type:  {String}  // The job type
 });
 ```
 
 ###### Error canceling a job
 ```JavaScript
-emit('error:job-cancel', err, {
+emit('error:job-cancel', error, {
     id:   {String}, // The job id
     type: {String}  // The job type
 });
