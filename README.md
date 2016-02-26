@@ -1,6 +1,6 @@
 # tasqueue
 
-Node.js job/task-queue library using disque.
+Promise-based Node.js job/task-queue library using disque.
 
 ### How it works
 
@@ -8,100 +8,325 @@ Node.js job/task-queue library using disque.
 2. Register new job types handlers
 3. Push jobs
 
-Tasqueue is a job/task-queue library based on [disque](https://www.github.com/antirez/disque). It aims to be simple, fast and to handle a high charge.
+Tasqueue is a job/task-queue library based on [disque](https://www.github.com/antirez/disque) and using [Q](https://github.com/kriskowal/q). It aims to be simple, fast and to handle a high charge.
 
-### API
-
-#### Create a client
-
-This creates a new client and initializes the connection to `disque-server`. The client starts working right after the connection is established.
+### Create a client
 ```JavaScript
 var Tasqueue = require('tasqueue');
+
+// Default options
 var opts = {
-  port: 7711,               // disque-server instance port
-  pollDelay: 15*1000,       // Polling delay in ms when no workers are available
-  jobTimeout: 60*60*1000,   // Timeout in ms before a job is considered as failed
-  failedTTL: 3*24*60*60,    // Failed jobs TTL in secs
-  completedTTL: 3*24*60*60  // Completed jobs TTL in secs
+    authPass:       null,               // AUTH password for disque-server
+    host:           'localhost',        // disque-server host
+    port:           7711,               // disque-server port
+    pollDelay:      1000 * 15,          // Polling delay in ms when no workers are available
+    jobTimeout:     1000 * 60 * 60,     // Timeout in ms before a job is considered as failed
+    failedTTL:      60 * 60 * 24,       // Failed jobs TTL in sec
+    completedTTL:   60 * 60 * 24,       // Completed jobs TTL in sec
+    queuedTTL:      60 * 60 * 24 * 3,   // Queued jobs TTL in sec
+    activeTTL:      60 * 60 * 24 * 3    // Active job TTL in sec
 };
 var tasqueue = new Tasqueue(opts);
 ```
 
-###### *Events*
-`emit('client:connected')` as soon as the client is connected to the `disque-server` instance.
+## Queue API
 
-#### Register a job handler
-`tasqueue.registerHandler(handler)`
+### `tasqueue.init()`
+_**Async**_:
+Initialize the client.
 
-`handler` should have the following properties:
+###### Example
+```JavaScript
+tasqueue.init()
+.then(function() {
+    // Start working
+}, function(err) {
+    // Connection to disque-server failed
+});
+```
+
+### `tasqueue.shutdown(timeoutMs, callback)`
+_**Async**_:
+End the client.
+
+###### Example
+```JavaScript
+tasqueue.init()
+.then(function() {
+    // ...
+    tasqueue.shutdown(1000, function() {
+        console.log('Tasqueue was shut down after at most 1000 ms.');
+    });
+});
+```
+
+### `tasqueue.poll()`
+Start polling and jobs execution. This function should be run only once.
+
+###### Example
+```JavaScript
+tasqueue.init()
+.then(function() {
+    tasqueue.poll();
+});
+```
+
+### `tasqueue.registerHandler(handler)`
+Register a job handler. `handler` should have the following properties:
 
 ```JavaScript
 var handler = {
   type: 'jobType', // {String}  will be used as the queue name
-  concurrency: 5,  // {Integer} max number of concurrent workers for this type
+  concurrency: 5,  // {Integer} max number of concurrent workers for this type, default = 1
   maxAttempts: 5,  // {Integer} max number of retry for this job type, default = 1
-  exec: function(payload) {}
+  exec: function(body) {
+    // do whatever using the body passed for this job
+  }
 };
 ```
 
-###### *Events*
-`emit('handler:register', handler.type)` as soon as the handler as been added to the client.
+### `tasqueue.listHandlers()`
+List of registered handlers types as an array.
 
-#### List handled types
-`tasqueue.listTypes()`
+###### Example
+```JavaScript
+var handler1 = { type: 'type:1', ... };
+var handler2 = { type: 'type:2', ... };
 
-#### Push a new job
-`tasqueue.push(jobType, payload)`
+tasqueue.registerHandler(handler1);
+tasqueue.registerHandler(handler2);
+var registeredHandlers = tasqueue.listHandlers();
+// registeredHandlers equals ['type:1', 'type:2']
+```
 
-Push a new job that will be processed by the corresponding `jobType` handler. The handler's `exec` function is called with `payload` used as its argument.
+### `tasqueue.push(jobType, body)`
+_**Async**_:
+Push a new job that will be processed by the corresponding `jobType` handler. The worker will call the handler's `exec` function with `body` used as its argument.
 
 When successful, returns the added job id.
 
-###### *Events*
-`emit('job:push', jobId, jobType)` as soon as the new job has been queued by the `disque-server` instance.
-
-#### List/Count all jobs by status
-`tasqueue.listActive()`, `client.countActive()`
-
-`tasqueue.listQueued()`, `client.countQueued()`
-
-`tasqueue.listCompleted()`, `client.countCompleted()`
-
-`tasqueue.listFailed()`, `client.countFailed()`
-
-#### Get details about a specific job
+###### Example
 ```JavaScript
-tasqueue.details(jobId)
+var handler1 = {
+    type: 'type:1',
+    exec: function(body) {
+        console.log('hello '+body.name);
+    }
+};
+
+tasqueue.pushJob('type:1', { name: 'Johan' })
+.then(function(jobId) {
+    // jobId will be a disque id
+});
+
+// After some time...
+// Logs 'hello Johan'
+```
+
+### `tasqueue.getJob(id)`
+_**Async**_:
+Returns a Job object that can be easily manipulated. You can find the API for Jobs a bit below.
+
+The promise is rejected if the queried job doesn't exist.
+
+###### Example
+```JavaScript
+tasqueue.getJob('someDisqueId')
 .then(function(job) {
-  job === {
-    id: 'D-14696a69-3x3GhrqkZEqjIwwuLiDnZ+LQ-05a1',
-    type: 'jobType',
-    body: { ... },
-    queue: 'queue',
-    state: 'queued',
-    repl: 1,
-    ttl: 86400,
-    ctime: 1455843565980000000,
-    delay: 0,
-    retry: 300,
-    nacks: 0,
-    'additional-deliveries': 0,
-    'nodes-delivered': [ '14696a6963e70cf719a214f48b806ba4fdad3d6f' ],
-    'nodes-confirmed': [],
-    'next-requeue-within': 299674,
-    'next-awake-within': 299174
-  };
+    console.log(job.details());
 });
 ```
 
-#### Cancel a job
-`tasqueue.cancel(jobId)`
+### Count jobs
+_**Async**_:
+Returns the count of jobs by state.
 
-#### Delete a job
-`tasqueue.delete(jobId)`
+#### `tasqueue.countActive()`
+#### `tasqueue.countQueued()`
+#### `tasqueue.countCompleted()`
+#### `tasqueue.countFailed()`
 
-###### *Events*
-`emit('job:delete', jobId)` as soon as the job has been deleted by the `disque-server` instance.
+### List jobs
+_**Async**_:
+Returns the list of jobs for each state and cursors to paginate through the jobs.
 
-#### Shutdown
-`tasqueue.shutdown(maxWaitTimeInMs, callback)`
+###### Example
+```JavaScript
+var opts = {
+    start: 10,  // Start/skip cursor
+    limit: 10   // Number of jobs to return
+};
+
+tasqueue.listActive(opts)
+.then(function(res) {
+    // res looks like
+    {
+        prev: 0,       // Cursor to get the previous 10 jobs or null
+        next: null,    // Cursor to get the next 10 jobs or null
+        list: [ ... ]  // List of Jobs objects
+    }
+});
+```
+
+#### `tasqueue.listActive()`
+#### `tasqueue.listQueued()`
+#### `tasqueue.listCompleted()`
+#### `tasqueue.listFailed()`
+
+## Jobs API
+
+### `job.details()`
+Get the job's informations in a pretty form.
+
+###### Example
+```JavaScript
+tasqueue.getJob('someId')
+.then(function(job) {
+    console.log(job.details());
+    {
+        id:         {String},
+        type:       {String},
+        body:       {Object},
+        state:      {String} - one of ['queued', 'active', 'completed', 'failed']
+        created:    {Date},
+        ended:      {Date},
+        attempt:    {Number} - Attempt at which the job failed/completed,
+        duration:   {Number} - in ms,
+        result:     {Object} - anything returned by the exec function on success,
+        error:      {Error} - details about why the job failed
+    }
+});
+```
+
+### `job.cancel()`
+_**Async**_:
+Cancels the job and set it as failed.
+
+Only queued jobs may be cancelled. The promise is rejected if the job is not in the `queued` state.
+
+### `job.delete()`
+_**Async**_:
+Utterly delete a job, whichever its state is.
+
+### Events
+Tasqueue inherits the Node.js `EventEmitter` class. Below is the list of all events emitted by tasqueue during execution:
+
+#### Queue execution
+
+###### Polling jobs
+```JavaScript
+emit('client:polling', {
+    types:            {Number}, // Number of available job types that can be processed by this poll
+    availableWorkers: {Number}, // Total number of available workers for these types
+    totalWorkers:     {Number}  // Total number of workers registered
+});
+```
+
+###### Polling delayed
+```JavaScript
+emit('client:delaying', {
+    delay: {Number} - tasqueue instance configured/default poll delay
+});
+```
+
+###### No worker available
+```JavaScript
+emit('client:no-workers')
+```
+
+###### Error while polling
+```JavaScript
+emit('error:polling', error);
+```
+
+#### Jobs
+
+###### Job started
+```JavaScript
+emit('job:started', {
+    id:   {String}, // The job id
+    type: {String}  // The job type
+});
+```
+
+###### Job successfully pushed
+```JavaScript
+emit('job:pushed', {
+    id:   {String}, // The job id
+    type: {String}  // The job type
+});
+```
+
+###### Job successfully canceled
+```JavaScript
+emit('job:canceled', {
+    id:   {String}, // The job id
+    type: {String}  // The job type
+});
+```
+
+###### Job successfully deleted
+```JavaScript
+emit('job:deleted', {
+    id:   {String}, // The job id
+    type: {String}  // The job type
+});
+```
+
+###### Job re-queued after failure
+```JavaScript
+emit('job:requeued', {
+    id:      {String}, // The job id
+    type:    {String}, // The job type
+    attempt: {Number}  // The last failed attempt for this job
+});
+```
+
+###### Job passed
+```JavaScript
+emit('job:success', {
+    id:   {String}, // The job id
+    type: {String}  // The job type
+});
+```
+
+###### Job failed
+```JavaScript
+emit('error:job-failed', {
+    id:    {String}, // The job id
+    type:  {String}, // The job type
+    error: {Error}   // Reason
+});
+```
+
+###### Error canceling a job
+```JavaScript
+emit('error:job-cancel', err, {
+    id:   {String}, // The job id
+    type: {String}  // The job type
+});
+```
+
+###### No handler registered for a job
+```JavaScript
+that.emit('error:no-handler', error, {
+    id:   {String}, // The job id
+    type: {String}  // The job type
+});
+```
+
+#### Handlers
+
+###### Handler successfully registered
+```JavaScript
+emit('handler:registered', {
+    handler.type
+});
+```
+
+###### Error: handler already exists
+```JavaScript
+emit('error:existing-handler', error, {
+    type: handler.type
+});
+```
