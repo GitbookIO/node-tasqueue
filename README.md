@@ -141,6 +141,8 @@ tasqueue.getJob('someDisqueId')
 _**Async**_:
 Returns the count of jobs by state.
 
+#### `tasqueue.count(state)`
+`state` must be one of `['active', 'queued', 'completed', 'failed']`.
 #### `tasqueue.countActive()`
 #### `tasqueue.countQueued()`
 #### `tasqueue.countCompleted()`
@@ -168,6 +170,8 @@ tasqueue.listActive(opts)
 });
 ```
 
+#### `tasqueue.list(state)`
+`state` must be one of `['active', 'queued', 'completed', 'failed']`.
 #### `tasqueue.listActive()`
 #### `tasqueue.listQueued()`
 #### `tasqueue.listCompleted()`
