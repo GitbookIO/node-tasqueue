@@ -101,7 +101,7 @@ var registeredHandlers = tasqueue.listHandlers();
 // registeredHandlers equals ['type:1', 'type:2']
 ```
 
-### `tasqueue.push(jobType, body)`
+### `tasqueue.pushJob(jobType, body)`
 _**Async**_:
 Push a new job that will be processed by the corresponding `jobType` handler. The worker will call the handler's `exec` function with `body` used as its argument.
 
