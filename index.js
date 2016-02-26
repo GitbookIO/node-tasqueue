@@ -180,7 +180,7 @@ Tasqueue.prototype.poll = function() {
                 activeJob = _job;
 
                 // Emit event
-                that.emit('job:start', {
+                that.emit('job:started', {
                     id:     activeJob.id,
                     type:   activeJob.getType()
                 });
@@ -229,7 +229,7 @@ Tasqueue.prototype.registerHandler = function(handler) {
     }
 
     that.workers[handler.type] = new Worker(that, handler);
-    that.emit('handler:register', {
+    that.emit('handler:registered', {
         type: handler.type
     });
 };
@@ -247,7 +247,7 @@ Tasqueue.prototype.pushJob = function(type, body) {
 
     return that.queues[config.QUEUED].addRawJob(type, body)
     .then(function(jobId) {
-        that.emit('job:push', {
+        that.emit('job:pushed', {
             id:     jobId,
             type:   type
         });
