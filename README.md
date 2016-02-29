@@ -12,6 +12,8 @@ Promise-based Node.js job/task-queue library using disque.
 
 Tasqueue is a job/task-queue library based on [disque](https://www.github.com/antirez/disque) and using [Q](https://github.com/kriskowal/q). It aims to be simple, fast and to handle a high charge.
 
+Monitoring functions of Tasqueue can only be entrusted when using a single-node instance of disque.
+
 ### Create a client
 ```JavaScript
 var Tasqueue = require('tasqueue');
@@ -64,6 +66,21 @@ tasqueue.init()
 
 ### `tasqueue.poll()`
 Start polling and jobs execution. This function should be run only once.
+
+###### Example
+```JavaScript
+tasqueue.init()
+.then(function() {
+    tasqueue.poll();
+});
+```
+
+### `tasqueue.processStuckActive()`
+Process jobs that were stuck in active state.
+
+This will reprocess all jobs that couldn't complete before a crash/restart of your client. Start-up is a good place to run this function.
+
+Be careful to register your job handlers before running or your stuck jobs will be marked as failed.
 
 ###### Example
 ```JavaScript
