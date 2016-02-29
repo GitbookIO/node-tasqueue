@@ -212,6 +212,55 @@ Tasqueue.prototype.poll = function() {
     });
 };
 
+// Process jobs that were stuck as active
+Tasqueue.prototype.processStuckActive = function() {
+    var that = this;
+
+    // GETJOB from ACTIVE
+    that.queues[config.ACTIVE].getJob({ noHang: true })
+    .then(function(activeId) {
+        // No job available, stop here
+        if (!activeId) return;
+
+        // Reference to the job
+        var activeJob = null;
+
+        // Get corresponding Job
+        return that.getJob(activeId)
+        .then(function(_job) {
+            // Get a worker for this job
+            activeJob = _job;
+            return that.getWorkerForJob(activeJob);
+        })
+        .then(function(worker) {
+            // No worker, get next job
+            if (!worker) return that.processStuckActive();
+
+            // Emit event
+            that.emit('job:started', {
+                id:     activeJob.id,
+                type:   activeJob.getType()
+            });
+
+            // Mark worker as taken and process job
+            worker.current++;
+            worker.processJob(activeJob)
+            .then(function() {
+                // Mark worker as freed
+                worker.current--;
+                return that.processStuckActive();
+            });
+
+            // There are maybe other jobs pending,
+            // and we still have concurrent workers available
+            if (that.countAvailableWorkers() > 0) {
+                return that.processStuckActive();
+            }
+        });
+
+    });
+};
+
 
 /**
  *  JOBS API
