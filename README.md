@@ -75,13 +75,6 @@ tasqueue.init()
 });
 ```
 
-### `tasqueue.processStuckActive()`
-Process jobs that were stuck in active state.
-
-This will reprocess all jobs that couldn't complete before a crash/restart of your client. Start-up is a good place to run this function.
-
-Be careful to register your job handlers before running or your stuck jobs will be marked as failed.
-
 ###### Example
 ```JavaScript
 tasqueue.init()
