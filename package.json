@@ -4,7 +4,7 @@
   "description": "Node.js job worker library using disque",
   "author": "GitBook Team <contact@gitbook.com>",
   "license": "Apache-2.0",
-  "main": "index.js",
+  "main": "./lib/index.js",
   "dependencies": {
     "lodash": "4.3.0",
     "q": "1.4.1",
