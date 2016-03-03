@@ -6,7 +6,7 @@ var TO_PUSH = 10;
 var jobType1 = 'handler1';
 var jobType2 = 'handler2';
 
-describe('Running tasqueue', function() {                                                               // eslint-disable-line
+describe('Running tasqueue', function() {
     var tasqueue  = new Tasqueue({
         pollDelay: 100
     });
@@ -30,11 +30,11 @@ describe('Running tasqueue', function() {                                       
         return Q.delay(200);
     }};
 
-    it('should initialize the connection to disque', function() {                                       // eslint-disable-line
+    it('should initialize the connection to disque', function() {
         return tasqueue.init();
     });
 
-    it('should register some job handlers', function() {                                                // eslint-disable-line
+    it('should register some job handlers', function() {
         tasqueue.registerHandler(handler1);
         tasqueue.registerHandler(handler2);
 
@@ -44,14 +44,14 @@ describe('Running tasqueue', function() {                                       
         });
     });
 
-    it('should push some jobs', function() {                                                            // eslint-disable-line
+    it('should push some jobs', function() {
         return Q(_.range(TO_PUSH)).eachSeries(function(n, i) {
             var jobType = (i % 2 === 0)? jobType1 : jobType2;
             return tasqueue.pushJob(jobType);
         });
     });
 
-    it('should start polling', function() {                                                             // eslint-disable-line
+    it('should start polling', function() {
         tasqueue.poll();
 
         return Q.delay(5)
@@ -60,7 +60,7 @@ describe('Running tasqueue', function() {                                       
         });
     });
 
-    it('should be processing jobs', function() {                                                        // eslint-disable-line
+    it('should be processing jobs', function() {
         return Q.delay(100)
         .then(function() {
             return tasqueue.countActive();
@@ -70,7 +70,7 @@ describe('Running tasqueue', function() {                                       
         });
     });
 
-    it('should have processed all jobs after some time', function() {                                   // eslint-disable-line
+    it('should have processed all jobs after some time', function() {
         return Q.delay(3000)
         .then(function() {
             return tasqueue.countFailed();
@@ -84,7 +84,7 @@ describe('Running tasqueue', function() {                                       
         });
     });
 
-    it('should clean all jobs before shuting down', function() {                                        // eslint-disable-line
+    it('should clean all jobs before shuting down', function() {
         return tasqueue.listFailed()
         .then(function(res) {
             return Q(res.list).eachSeries(function(job) {
@@ -101,7 +101,7 @@ describe('Running tasqueue', function() {                                       
         });
     });
 
-    it('should end the connection to disque', function() {                                              // eslint-disable-line
+    it('should end the connection to disque', function() {
         return tasqueue.shutdown(1000, function() {});
     });
 });

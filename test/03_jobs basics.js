@@ -4,7 +4,7 @@ var Tasqueue = require('../lib/index');
 var jobType = 'custom';
 var jobId = null;
 
-describe('tasqueue.pushJob()', function() {                                                         // eslint-disable-line
+describe('tasqueue.pushJob()', function() {
     var tasqueue = new Tasqueue();
     var pushed = 0;
 
@@ -12,7 +12,7 @@ describe('tasqueue.pushJob()', function() {                                     
         if (job.type === jobType) pushed++;
     });
 
-    it('should push new jobs and emit job:pushed', function() {                                     // eslint-disable-line
+    it('should push new jobs and emit job:pushed', function() {
         return tasqueue.init()
         .then(function() {
             return tasqueue.pushJob(jobType);
@@ -30,10 +30,10 @@ describe('tasqueue.pushJob()', function() {                                     
     });
 });
 
-describe('tasqueue.getJob()', function() {                                                          // eslint-disable-line
+describe('tasqueue.getJob()', function() {
     var tasqueue = new Tasqueue();
 
-    it('should retrieve a job', function() {                                                        // eslint-disable-line
+    it('should retrieve a job', function() {
         return tasqueue.init()
         .then(function() {
             return tasqueue.getJob(jobId);
@@ -48,7 +48,7 @@ describe('tasqueue.getJob()', function() {                                      
     });
 });
 
-describe('job.cancel()', function() {                                                               // eslint-disable-line
+describe('job.cancel()', function() {
     var tasqueue = new Tasqueue();
     var canceled = false;
 
@@ -56,7 +56,7 @@ describe('job.cancel()', function() {                                           
         if (job.id === jobId) canceled = true;
     });
 
-    it('should cancel a job and emit job:canceled', function() {                                    // eslint-disable-line
+    it('should cancel a job and emit job:canceled', function() {
         return tasqueue.init()
         .then(function() {
             return tasqueue.getJob(jobId);
@@ -84,10 +84,10 @@ describe('job.cancel()', function() {                                           
     });
 });
 
-describe('tasqueue.countFailed()', function() {                                                     // eslint-disable-line
+describe('tasqueue.countFailed()', function() {
     var tasqueue = new Tasqueue();
 
-    it('should return the number of failed jobs', function() {                                     // eslint-disable-line
+    it('should return the number of failed jobs', function() {
         return tasqueue.init()
         .then(function() {
             return tasqueue.countFailed();
@@ -102,10 +102,10 @@ describe('tasqueue.countFailed()', function() {                                 
     });
 });
 
-describe('tasqueue.listFailed()', function() {                                                      // eslint-disable-line
+describe('tasqueue.listFailed()', function() {
     var tasqueue = new Tasqueue();
 
-    it('should return the list of failed jobs', function() {                                        // eslint-disable-line
+    it('should return the list of failed jobs', function() {
         return tasqueue.init()
         .then(function() {
             return tasqueue.listFailed();
@@ -123,7 +123,7 @@ describe('tasqueue.listFailed()', function() {                                  
     });
 });
 
-describe('job.delete()', function() {                                                               // eslint-disable-line
+describe('job.delete()', function() {
     var tasqueue = new Tasqueue();
     var deleted  = false;
 
@@ -131,7 +131,7 @@ describe('job.delete()', function() {                                           
         if (job.id === jobId) deleted = true;
     });
 
-    it('should delete a job and emit job:deleted', function() {                                     // eslint-disable-line
+    it('should delete a job and emit job:deleted', function() {
         return tasqueue.init()
         .then(function() {
             return tasqueue.getJob(jobId);

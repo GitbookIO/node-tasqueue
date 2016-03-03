@@ -2,7 +2,7 @@ var Q = require('q');
 var _ = require('lodash');
 var Tasqueue = require('../lib/index');
 
-describe('tasqueue.registerHandler()', function() {                                                 // eslint-disable-line
+describe('tasqueue.registerHandler()', function() {
     var tasqueue = new Tasqueue();
     var registered = false;
     var registeredTwice = false;
@@ -20,7 +20,7 @@ describe('tasqueue.registerHandler()', function() {                             
     };
 
 
-    it('should register a new handler and emit handler:registered', function() {                    // eslint-disable-line
+    it('should register a new handler and emit handler:registered', function() {
         return tasqueue.init()
         .then(function() {
             tasqueue.registerHandler(handler);
@@ -34,7 +34,7 @@ describe('tasqueue.registerHandler()', function() {                             
         });
     });
 
-    it('should emit error:existing-handler when registering an handler twice', function() {         // eslint-disable-line
+    it('should emit error:existing-handler when registering an handler twice', function() {
         return tasqueue.init()
         .then(function() {
             tasqueue.registerHandler(handler);
@@ -50,7 +50,7 @@ describe('tasqueue.registerHandler()', function() {                             
     });
 });
 
-describe('tasqueue.listHandlers()', function() {                                                    // eslint-disable-line
+describe('tasqueue.listHandlers()', function() {
     var tasqueue = new Tasqueue();
 
     var handler1 = { type: 'handler1', exec: function() {}};
@@ -58,7 +58,7 @@ describe('tasqueue.listHandlers()', function() {                                
     var handler3 = { type: 'handler3', exec: function() {}};
     var handlers = ['handler1', 'handler2', 'handler3'];
 
-    it('should return the list of registered handlers', function() {                                // eslint-disable-line
+    it('should return the list of registered handlers', function() {
         return tasqueue.init()
         .then(function() {
             tasqueue.registerHandler(handler1);

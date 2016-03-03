@@ -5,10 +5,10 @@ var Tasqueue = require('../lib/index');
 var jobType = 'custom';
 var TO_PUSH  = 10;
 
-describe('tasqueue.countQueued()', function() {                                                         // eslint-disable-line
+describe('tasqueue.countQueued()', function() {
     var tasqueue = new Tasqueue();
 
-    it('should get the count of queued jobs', function() {                                              // eslint-disable-line
+    it('should get the count of queued jobs', function() {
         return tasqueue.init()
         .then(function() {
             return Q(_.range(TO_PUSH)).eachSeries(function() {
@@ -27,10 +27,10 @@ describe('tasqueue.countQueued()', function() {                                 
     });
 });
 
-describe('tasqueue.listQueued()', function() {                                                          // eslint-disable-line
+describe('tasqueue.listQueued()', function() {
     var tasqueue = new Tasqueue();
 
-    it('should get the list of queued jobs', function() {                                               // eslint-disable-line
+    it('should get the list of queued jobs', function() {
         return tasqueue.init()
         .then(function() {
             return tasqueue.listQueued({ limit: TO_PUSH });

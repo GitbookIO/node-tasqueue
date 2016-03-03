@@ -1,10 +1,10 @@
 var Q = require('q');
 var Tasqueue = require('../lib/index');
 
-describe('tasqueue.init()', function() {                                                            // eslint-disable-line
+describe('tasqueue.init()', function() {
     var tasqueue = new Tasqueue();
 
-    it('should connect to disque', function() {                                                     // eslint-disable-line
+    it('should connect to disque', function() {
         return tasqueue.init()
         .fail(function(err) {
             throw err;
@@ -15,10 +15,10 @@ describe('tasqueue.init()', function() {                                        
     });
 });
 
-describe('tasqueue.ping()', function() {                                                            // eslint-disable-line
+describe('tasqueue.ping()', function() {
     var tasqueue = new Tasqueue();
 
-    it('should check connection to disque', function() {                                            // eslint-disable-line
+    it('should check connection to disque', function() {
         return tasqueue.init()
         .then(function() {
             return tasqueue.ping();
@@ -32,10 +32,10 @@ describe('tasqueue.ping()', function() {                                        
     });
 });
 
-describe('tasqueue.shutdown()', function() {                                                        // eslint-disable-line
+describe('tasqueue.shutdown()', function() {
     var tasqueue = new Tasqueue();
 
-    it('should end connection to disque', function() {                                              // eslint-disable-line
+    it('should end connection to disque', function() {
         return tasqueue.init()
         .then(function() {
             return tasqueue.ping();
