@@ -1,0 +1,10 @@
+language: node_js
+
+node_js:
+  - "stable"
+
+before_script:
+  - git clone https://github.com/antirez/disque.git disque_server
+  - "cd disque_server/src && make && PREFIX=../ make install && cd -"
+  - "./disque_server/bin/disque-server &"
+  - ./disque_server/bin/disque PING
