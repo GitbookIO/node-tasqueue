@@ -13,8 +13,7 @@
   },
   "devDependencies": {
     "eslint": "2.2.0",
-    "mocha": "2.3.4",
-    "should": "7.1.1"
+    "mocha": "2.4.5"
   },
   "scripts": {
     "test": "node_modules/.bin/mocha -b --reporter spec --timeout 5000"
