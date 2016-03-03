@@ -27,8 +27,8 @@ var opts = {
     jobTimeout:     1000 * 60 * 60,     // Timeout in ms before a job is considered as failed
     failedTTL:      60 * 60 * 24,       // Failed jobs TTL in sec
     completedTTL:   60 * 60 * 24,       // Completed jobs TTL in sec
-    queuedTTL:      60 * 60 * 24 * 3,   // Queued jobs TTL in sec
-    activeTTL:      60 * 60 * 24 * 3    // Active job TTL in sec
+    queuedTTL:      60 * 60 * 24,       // Queued jobs TTL in sec
+    activeTTL:      60 * 60 * 1         // Active job TTL in sec
 };
 var tasqueue = new Tasqueue(opts);
 ```
@@ -66,14 +66,6 @@ tasqueue.init()
 
 ### `tasqueue.poll()`
 Start polling and jobs execution. This function should be run only once.
-
-###### Example
-```JavaScript
-tasqueue.init()
-.then(function() {
-    tasqueue.poll();
-});
-```
 
 ###### Example
 ```JavaScript
