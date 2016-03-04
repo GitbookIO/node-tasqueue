@@ -1,6 +1,7 @@
 # tasqueue
 
 [![npm version](https://badge.fury.io/js/tasqueue.svg)](https://badge.fury.io/js/tasqueue)
+[![Build Status](https://travis-ci.org/GitbookIO/node-tasqueue.svg?branch=master)](https://travis-ci.org/GitbookIO/node-tasqueue)
 
 Promise-based Node.js job/task-queue library using disque.
 
