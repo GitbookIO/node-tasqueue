@@ -16,21 +16,24 @@ Tasqueue is a job/task-queue library based on [disque](https://www.github.com/an
 Monitoring functions of Tasqueue can only be entrusted when using a single-node instance of disque.
 
 ### Create a client
-```JavaScript
+```js
 var Tasqueue = require('tasqueue');
 
 // Default options
 var opts = {
-    authPass:       null,               // AUTH password for disque-server
-    host:           'localhost',        // disque-server host
-    port:           7711,               // disque-server port
-    pollDelay:      1000 * 15,          // Polling delay in ms when no workers are available
-    jobTimeout:     1000 * 60 * 60,     // Timeout in ms before a job is considered as failed
-    failedTTL:      60 * 60 * 24,       // Failed jobs TTL in sec
-    completedTTL:   60 * 60 * 24,       // Completed jobs TTL in sec
-    queuedTTL:      60 * 60 * 24,       // Queued jobs TTL in sec
-    activeTTL:      60 * 60 * 1         // Active job TTL in sec
+    authPass:      null,            // AUTH password for disque-server
+    host:          'localhost',     // disque-server host
+    port:          7711,            // disque-server port
+    pollDelay:     1000 * 15,       // Polling delay in ms when no workers are available
+    jobTimeout:    1000 * 60 * 60,  // Timeout in ms before a job is considered as failed
+    failedTTL:     60 * 60 * 24,    // Failed jobs TTL in sec
+    completedTTL:  60 * 60 * 24,    // Completed jobs TTL in sec
+    queuedTTL:     60 * 60 * 24,    // Queued jobs TTL in sec
+    activeTTL:     60 * 60 * 1,     // Active job TTL in sec
+    maxAttempts:   60,              // Max reconnection attempts
+    retryMaxDelay: 1000 * 60        // Prevent exponential reconnection delay
 };
+
 var tasqueue = new Tasqueue(opts);
 ```
 
@@ -41,7 +44,7 @@ _**Async**_:
 Initialize the client.
 
 ###### Example
-```JavaScript
+```js
 tasqueue.init()
 .then(function() {
     // Start working
@@ -55,7 +58,7 @@ _**Async**_:
 End the client.
 
 ###### Example
-```JavaScript
+```js
 tasqueue.init()
 .then(function() {
     // ...
@@ -69,7 +72,7 @@ tasqueue.init()
 Start polling and jobs execution. This function should be run only once.
 
 ###### Example
-```JavaScript
+```js
 tasqueue.init()
 .then(function() {
     tasqueue.poll();
@@ -79,7 +82,7 @@ tasqueue.init()
 ### `tasqueue.registerHandler(handler)`
 Register a job handler. `handler` should have the following properties:
 
-```JavaScript
+```js
 var handler = {
   type: 'jobType', // {String}  will be used as the queue name
   concurrency: 5,  // {Integer} max number of concurrent workers for this type, default = 1
@@ -94,7 +97,7 @@ var handler = {
 List of registered handlers types as an array.
 
 ###### Example
-```JavaScript
+```js
 var handler1 = { type: 'type:1', ... };
 var handler2 = { type: 'type:2', ... };
 
@@ -111,7 +114,7 @@ Push a new job that will be processed by the corresponding `jobType` handler. Th
 When successful, returns the added job id.
 
 ###### Example
-```JavaScript
+```js
 var handler1 = {
     type: 'type:1',
     exec: function(body) {
@@ -135,7 +138,7 @@ Returns a Job object that can be easily manipulated. You can find the API for Jo
 The promise is rejected if the queried job doesn't exist.
 
 ###### Example
-```JavaScript
+```js
 tasqueue.getJob('someDisqueId')
 .then(function(job) {
     console.log(job.details());
@@ -158,7 +161,7 @@ _**Async**_:
 Returns the list of jobs for each state and cursors to paginate through the jobs.
 
 ###### Example
-```JavaScript
+```js
 var opts = {
     start: 10,  // Start/skip cursor
     limit: 10   // Number of jobs to return
@@ -188,7 +191,7 @@ tasqueue.listActive(opts)
 Get the job's informations in a pretty form.
 
 ###### Example
-```JavaScript
+```js
 tasqueue.getJob('someId')
 .then(function(job) {
     console.log(job.details());
@@ -220,10 +223,26 @@ Utterly delete a job, whichever its state is.
 ### Events
 Tasqueue inherits the Node.js `EventEmitter` class. Below is the list of all events emitted by tasqueue during execution:
 
+#### Client
+
+###### Client connection
+```js
+emit('client:connected', {
+    // disque-server informations client is connected to
+    host: {String},
+    port: {Number}
+});
+```
+
+###### Client closed
+```js
+emit('client:closed');
+```
+
 #### Queue execution
 
 ###### Polling jobs
-```JavaScript
+```js
 emit('client:polling', {
     types:            {Number}, // Number of available job types that can be processed by this poll
     availableWorkers: {Number}, // Total number of available workers for these types
@@ -232,26 +251,26 @@ emit('client:polling', {
 ```
 
 ###### Polling delayed
-```JavaScript
+```js
 emit('client:delaying', {
     delay: {Number} - tasqueue instance configured/default poll delay
 });
 ```
 
 ###### No worker available
-```JavaScript
+```js
 emit('client:no-workers')
 ```
 
 ###### Error while polling
-```JavaScript
+```js
 emit('error:polling', error);
 ```
 
 #### Jobs
 
 ###### Job started
-```JavaScript
+```js
 emit('job:started', {
     id:   {String}, // The job id
     type: {String}  // The job type
@@ -259,7 +278,7 @@ emit('job:started', {
 ```
 
 ###### Job successfully pushed
-```JavaScript
+```js
 emit('job:pushed', {
     id:   {String}, // The job id
     type: {String}  // The job type
@@ -267,7 +286,7 @@ emit('job:pushed', {
 ```
 
 ###### Job successfully canceled
-```JavaScript
+```js
 emit('job:canceled', {
     id:   {String}, // The job id
     type: {String}  // The job type
@@ -275,7 +294,7 @@ emit('job:canceled', {
 ```
 
 ###### Job successfully deleted
-```JavaScript
+```js
 emit('job:deleted', {
     id:   {String}, // The job id
     type: {String}  // The job type
@@ -283,7 +302,7 @@ emit('job:deleted', {
 ```
 
 ###### Job re-queued after failure
-```JavaScript
+```js
 emit('job:requeued', {
     id:      {String}, // The job id
     type:    {String}, // The job type
@@ -292,7 +311,7 @@ emit('job:requeued', {
 ```
 
 ###### Job passed
-```JavaScript
+```js
 emit('job:success', {
     id:   {String}, // The job id
     type: {String}  // The job type
@@ -300,7 +319,7 @@ emit('job:success', {
 ```
 
 ###### Job failed
-```JavaScript
+```js
 emit('error:job-failed', error, {
     id:    {String}, // The job id
     type:  {String}  // The job type
@@ -308,7 +327,7 @@ emit('error:job-failed', error, {
 ```
 
 ###### Error canceling a job
-```JavaScript
+```js
 emit('error:job-cancel', error, {
     id:   {String}, // The job id
     type: {String}  // The job type
@@ -316,8 +335,8 @@ emit('error:job-cancel', error, {
 ```
 
 ###### No handler registered for a job
-```JavaScript
-that.emit('error:no-handler', error, {
+```js
+emit('error:no-handler', error, {
     id:   {String}, // The job id
     type: {String}  // The job type
 });
@@ -326,14 +345,14 @@ that.emit('error:no-handler', error, {
 #### Handlers
 
 ###### Handler successfully registered
-```JavaScript
+```js
 emit('handler:registered', {
     handler.type
 });
 ```
 
 ###### Error: handler already exists
-```JavaScript
+```js
 emit('error:existing-handler', error, {
     type: handler.type
 });
