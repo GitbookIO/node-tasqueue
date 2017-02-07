@@ -9,7 +9,9 @@ describe('tasqueue.pushJob()', () => {
     let pushed = 0;
 
     tasqueue.on('job:pushed', (job) => {
-        if (job.type === jobType) pushed++;
+        if (job.type === jobType) {
+            pushed++;
+        }
     });
 
     it('should push new jobs and emit job:pushed', () => {
@@ -38,7 +40,7 @@ describe('tasqueue.getJob()', () => {
             const jobInfos = job.details();
 
             if (jobInfos.type !== jobType) {
-                throw new Error('job should be of type ' + jobType);
+                throw new Error(`job should be of type ${jobType}`);
             }
         })
         .fin(() => tasqueue.shutdown(1000, () => {}));
@@ -68,7 +70,7 @@ describe('job.cancel()', () => {
         .then(() => tasqueue.getJob(jobId))
         .then(
             () => {
-                throw new Error('job ' + jobId + ' should have been canceled');
+                throw new Error(`job ${jobId} should have been canceled`);
             },
             () => Promise()
         )
@@ -137,7 +139,7 @@ describe('job.delete()', () => {
         .then(() => tasqueue.getJob(jobId))
         .then(
             () => {
-                throw new Error('job ' + jobId + ' should have been deleted');
+                throw new Error(`job ${jobId} should have been deleted`);
             },
             () => Promise()
         )

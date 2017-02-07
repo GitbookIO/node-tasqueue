@@ -1,105 +1,119 @@
 const domain = require('domain');
-const Q      = require('q');
+const Promise = require('q');
 
-/**
- *  CONSTRUCTOR
- */
+class Worker {
 
-function Worker(tasqueue, handler) {
-    const that = this;
+    /**
+    *  CONSTRUCTOR
+    *  @param {Tasqueue} tasqueue
+    *  @param {Object} handler
+    */
+    constructor(tasqueue, handler) {
+        this.processing = {};
+        this.current = 0;
+        this.type = handler.type;
+        this.concurrency = handler.concurrency || 1;
+        this.maxAttemps = handler.maxAttemps || 1;
 
-    that.processing  = {};
-    that.current     = 0;
-    that.type        = handler.type;
-    that.concurrency = handler.concurrency || 1;
-    that.maxAttemps  = handler.maxAttemps || 1;
+        this.exec = function(job) {
+            const d = Promise.defer();
+            const dmn = domain.create();
 
-    that.exec = function(job) {
-        const d   = Q.defer();
-        const dmn = domain.create();
+            // Cleanup domain
+            const cleanup = () => {
+                dmn.removeAllListeners();
+            };
 
-        // Cleanup domain
-        const cleanup = () => {
-            dmn.removeAllListeners();
+            // Finish with an eror (or not)
+            const next = (err) => {
+                cleanup();
+
+                if (err) {
+                    d.reject(err);
+                }
+                else {
+                    d.resolve();
+                }
+            };
+
+            dmn.once('error', (err) => {
+                cleanup();
+                next(err);
+            });
+            dmn.run(() => {
+                Promise()
+                .then(() => {
+                    return handler.exec(job.body, job);
+                })
+                .nodeify(next);
+            });
+
+            return d.promise;
         };
+    }
 
-        // Finish with an eror (or not)
-        const next = (err) => {
-            cleanup();
 
-            if (err) {
-                d.reject(err);
-            }
-            else {
-                d.resolve();
-            }
-        };
+    /**
+    *  API FOR TASQUEUE
+    */
 
-        dmn.once('error', (err) => {
-            cleanup();
-            next(err);
+    /**
+     * Process a job
+     * @param {Job} job
+     * @return {Promise}
+     */
+    processJob(job) {
+        this.current++;
+
+        return Promise()
+        .then(() => {
+            this.processing[job.id] = this.wrapJobprocess(job, this.exec(job));
+            return this.processing[job.id];
+        })
+        .fin(() => {
+            this.current--;
+            delete this.processing[job.id];
         });
-        dmn.run(() => {
-            Q()
-            .then(() => {
-                return handler.exec(job.body, job);
-            })
-            .nodeify(next);
-        });
+    }
 
-        return d.promise;
-    };
+    /**
+     * Return a count of available occurences for this worker
+     * @return {Number}
+     */
+    countAvailable() {
+        return this.concurrency - this.current;
+    }
+
+    /**
+     * Check if a worker is available to work
+     * @return {Boolean}
+     */
+    isAvailable() {
+        return this.concurrency > this.current;
+    }
+
+
+    /**
+    *  INTERNAL UTILITY FUNCTIONS
+    */
+
+    /**
+     * Wrap job processing with exec function
+     * @param {Job} job
+     * @param {Function} exec
+     * @return {Promise}
+     */
+    wrapJobprocess(job, exec) {
+        // Exec job handler
+        return Promise(exec)
+        .timeout(job.tasqueue.opts.jobTimeout, `took longer than ${Math.ceil(job.tasqueue.opts.jobTimeout / 1000)} seconds to process`)
+        .then(
+            // Job succeeded
+            result => job.setAsCompleted(result),
+            // Job failed
+            err => job.failed(err)
+        );
+    }
 }
-
-
-/**
- *  API FOR TASQUEUE
- */
-
-// Process a job
-Worker.prototype.processJob = function(job) {
-    const that = this;
-
-    this.current++;
-
-    return Q()
-    .then(() => {
-        that.processing[job.id] = that.wrapJobprocess(job, that.exec(job));
-        return that.processing[job.id];
-    })
-    .fin(() => {
-        that.current--;
-        delete that.processing[job.id];
-    });
-};
-
-// Return a count of available occurences for this worker
-Worker.prototype.countAvailable = function() {
-    return this.concurrency - this.current;
-};
-
-// Check if a worker is available to work
-Worker.prototype.isAvailable = function() {
-    return this.concurrency > this.current;
-};
-
-
-/**
- *  INTERNAL UTILITY FUNCTIONS
- */
-
-// Wrap job processing with exec function
-Worker.prototype.wrapJobprocess = function(job, exec) {
-    // Exec job handler
-    return Q(exec)
-    .timeout(job.tasqueue.opts.jobTimeout, 'took longer than ' + Math.ceil(job.tasqueue.opts.jobTimeout / 1000) + ' seconds to process')
-    .then((result) => {
-        // Job succeeded
-        return job.setAsCompleted(result);
-    }, (err) => {
-        // Job failed
-        return job.failed(err);
-    });
-};
 
 module.exports = Worker;

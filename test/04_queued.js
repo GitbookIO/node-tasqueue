@@ -17,7 +17,7 @@ describe('tasqueue.countQueued()', () => {
         .then(() => tasqueue.countQueued())
         .then((count) => {
             if (count !== TO_PUSH) {
-                throw new Error('The number of queued jobs should be ' + TO_PUSH);
+                throw new Error(`The number of queued jobs should be ${TO_PUSH}`);
             }
         })
         .fin(() => tasqueue.shutdown(1000, () => {}));
@@ -35,10 +35,10 @@ describe('tasqueue.listQueued()', () => {
             const firstJob = jobs[0].details();
 
             if (jobs.length !== TO_PUSH) {
-                throw new Error('The number of listed jobs should be ' + TO_PUSH);
+                throw new Error(`The number of listed jobs should be ${TO_PUSH}`);
             }
             if (firstJob.type !== jobType) {
-                throw new Error('Listed jobs should be of type ' + jobType);
+                throw new Error(`Listed jobs should be of type ${jobType}`);
             }
 
             return Promise(jobs)
