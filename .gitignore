@@ -1,1 +1,9 @@
+# Logs
+logs
+*.log
+
+# Dependencies
 node_modules/
+
+# Compiled code
+lib/
