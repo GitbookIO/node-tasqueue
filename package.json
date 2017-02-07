@@ -1,6 +1,6 @@
 {
   "name": "tasqueue",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Node.js job worker library using disque",
   "author": "GitBook Team <contact@gitbook.com>",
   "license": "Apache-2.0",
