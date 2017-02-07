@@ -1,61 +1,58 @@
-var Q = require('q');
-var Tasqueue = require('../lib/index');
+const Promise = require('q');
+const Tasqueue = require('../src');
 
-describe('tasqueue.init()', function() {
-    var tasqueue = new Tasqueue();
+describe('tasqueue.init()', () => {
+    const tasqueue = new Tasqueue();
 
-    it('should connect to disque', function() {
+    it('should connect to disque', () => {
         return tasqueue.init()
-        .fail(function(err) {
+        .fail((err) => {
             throw err;
         })
-        .fin(function() {
-            return tasqueue.shutdown(1000, function() {});
+        .fin(() => {
+            return tasqueue.shutdown(1000, () => {});
         });
     });
 });
 
-describe('tasqueue.ping()', function() {
-    var tasqueue = new Tasqueue();
+describe('tasqueue.ping()', () => {
+    const tasqueue = new Tasqueue();
 
-    it('should check connection to disque', function() {
+    it('should check connection to disque', () => {
         return tasqueue.init()
-        .then(function() {
+        .then(() => {
             return tasqueue.ping();
         })
-        .fail(function(err) {
+        .fail((err) => {
             throw err;
         })
-        .fin(function() {
-            return tasqueue.shutdown(1000, function() {});
+        .fin(() => {
+            return tasqueue.shutdown(1000, () => {});
         });
     });
 });
 
-describe('tasqueue.shutdown()', function() {
-    var tasqueue = new Tasqueue();
+describe('tasqueue.shutdown()', () => {
+    const tasqueue = new Tasqueue();
 
-    it('should end connection to disque', function() {
+    it('should end connection to disque', () => {
         return tasqueue.init()
-        .then(function() {
+        .then(() => {
             return tasqueue.ping();
         })
-        .then(function() {
-            return tasqueue.shutdown(1000, function() {});
+        .then(() => {
+            return tasqueue.shutdown(1000, () => {});
         })
-        .fail(function(err) {
+        .fail((err) => {
             throw err;
         })
-        .fin(function() {
+        .fin(() => {
             return tasqueue.ping();
         })
-        .then(function() {
+        .then(() => {
             throw new Error('Client shouldn\'t be able to ping on a closed connection');
-        }, function(err) {
-            return Q();
+        }, (err) => {
+            return Promise();
         });
     });
 });
-
-
-

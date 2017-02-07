@@ -1,7 +1,7 @@
-var _      = require('lodash');
-var Q      = require('q');
-var Job    = require('./job');
-var config = require('./config');
+const _      = require('lodash');
+const Q      = require('q');
+const Job    = require('./job');
+const config = require('./config');
 
 /**
  *  CONSTRUCTOR
@@ -26,7 +26,7 @@ Queue.prototype.addRawJob = function(type, body) {
     body._jobType = type;
 
     // Construct query
-    var query = [
+    const query = [
         this.name,              // queue_name
         JSON.stringify(body),   // job
         0,                      // <ms-timeout>
@@ -67,7 +67,7 @@ Queue.prototype.getJob = function(opts) {
     });
 
     // Construct query
-    var query = [
+    const query = [
         'FROM', this.name   // queue_name
     ];
 
@@ -80,7 +80,7 @@ Queue.prototype.getJob = function(opts) {
 
     // GETJOB
     return Q(this.tasqueue.client.getjob(query))
-    .then(function(res) {
+    .then((res) => {
         // No job available
         if (!res) {
             return null;
@@ -88,7 +88,7 @@ Queue.prototype.getJob = function(opts) {
 
         // Reformat result and return jobId
         res       = (res.length > 0) ? res[0] : null;
-        var jobId = (res.length > 0) ? res[1] : null;
+        const jobId = (res.length > 0) ? res[1] : null;
 
         return jobId;
     });
@@ -101,7 +101,7 @@ Queue.prototype.length = function() {
 
 // List jobs in queue
 Queue.prototype.list = function(opts) {
-    var that = this;
+    const that = this;
 
     // Default options
     opts = _.defaults(opts || {}, {
@@ -114,25 +114,25 @@ Queue.prototype.list = function(opts) {
     opts.limit += opts.start;
 
     return Q(that.tasqueue.client.qpeek(that.name, opts.limit))
-    .then(function(res) {
+    .then((res) => {
         // Slice res to obtain real result
         res = res.slice(opts.start, opts.limit);
         // Reset opts.limit to its initial value
         opts.limit -= opts.start;
 
         // Get the jobs ids
-        var ids = _.chain(res)
-        .map(function(jobInfos) {
+        const ids = _.chain(res)
+        .map((jobInfos) => {
             // jobId is stored in second position
             return jobInfos[1];
         })
         .value();
 
         // Create the list of Job objects
-        var list = [];
-        return Q(ids).eachSeries(function(id) {
+        const list = [];
+        return Q(ids).eachSeries((id) => {
             return Q(that.tasqueue.client.show(id))
-            .then(function(_job) {
+            .then((_job) => {
                 // Don't add job if doesn't exist
                 if (!_job) {
                     return;
@@ -141,15 +141,15 @@ Queue.prototype.list = function(opts) {
                 list.push(new Job(that.tasqueue, _job));
             });
         })
-        .then(function() {
+        .then(() => {
             // Create cursors based on the list length
-            var prev = (!!res.length && opts.start > 0) ? Math.max(opts.start - opts.limit, 0) : null;
-            var next = (res.length === opts.limit) ? opts.start + opts.limit : null;
+            const prev = (!!res.length && opts.start > 0) ? Math.max(opts.start - opts.limit, 0) : null;
+            const next = (res.length === opts.limit) ? opts.start + opts.limit : null;
             // Return list and cursors
             return {
-                prev: prev,
-                next: next,
-                list: list
+                prev,
+                next,
+                list
             };
         });
     });

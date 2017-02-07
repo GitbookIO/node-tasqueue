@@ -1,12 +1,12 @@
-var domain = require('domain');
-var Q      = require('q');
+const domain = require('domain');
+const Q      = require('q');
 
 /**
  *  CONSTRUCTOR
  */
 
 function Worker(tasqueue, handler) {
-    var that = this;
+    const that = this;
 
     that.processing  = {};
     that.current     = 0;
@@ -15,16 +15,16 @@ function Worker(tasqueue, handler) {
     that.maxAttemps  = handler.maxAttemps || 1;
 
     that.exec = function(job) {
-        var d   = Q.defer();
-        var dmn = domain.create();
+        const d   = Q.defer();
+        const dmn = domain.create();
 
         // Cleanup domain
-        var cleanup = function() {
+        const cleanup = () => {
             dmn.removeAllListeners();
         };
 
         // Finish with an eror (or not)
-        var next = function(err) {
+        const next = (err) => {
             cleanup();
 
             if (err) {
@@ -35,13 +35,13 @@ function Worker(tasqueue, handler) {
             }
         };
 
-        dmn.once('error', function(err) {
+        dmn.once('error', (err) => {
             cleanup();
             next(err);
         });
-        dmn.run(function() {
+        dmn.run(() => {
             Q()
-            .then(function() {
+            .then(() => {
                 return handler.exec(job.body, job);
             })
             .nodeify(next);
@@ -58,16 +58,16 @@ function Worker(tasqueue, handler) {
 
 // Process a job
 Worker.prototype.processJob = function(job) {
-    var that = this;
+    const that = this;
 
     this.current++;
 
     return Q()
-    .then(function() {
+    .then(() => {
         that.processing[job.id] = that.wrapJobprocess(job, that.exec(job));
         return that.processing[job.id];
     })
-    .fin(function() {
+    .fin(() => {
         that.current--;
         delete that.processing[job.id];
     });
@@ -92,11 +92,11 @@ Worker.prototype.isAvailable = function() {
 Worker.prototype.wrapJobprocess = function(job, exec) {
     // Exec job handler
     return Q(exec)
-    .timeout(job.tasqueue.opts.jobTimeout, 'took longer than '+Math.ceil(job.tasqueue.opts.jobTimeout/1000)+' seconds to process')
-    .then(function(result) {
+    .timeout(job.tasqueue.opts.jobTimeout, 'took longer than ' + Math.ceil(job.tasqueue.opts.jobTimeout / 1000) + ' seconds to process')
+    .then((result) => {
         // Job succeeded
         return job.setAsCompleted(result);
-    }, function(err) {
+    }, (err) => {
         // Job failed
         return job.failed(err);
     });

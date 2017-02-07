@@ -1,163 +1,160 @@
-var Q = require('q');
-var Tasqueue = require('../lib/index');
+const Promise = require('q');
+const Tasqueue = require('../src');
 
-var jobType = 'custom';
-var jobId = null;
+const jobType = 'custom';
+let jobId = null;
 
-describe('tasqueue.pushJob()', function() {
-    var tasqueue = new Tasqueue();
-    var pushed = 0;
+describe('tasqueue.pushJob()', () => {
+    const tasqueue = new Tasqueue();
+    let pushed = 0;
 
-    tasqueue.on('job:pushed', function(job) {
+    tasqueue.on('job:pushed', (job) => {
         if (job.type === jobType) pushed++;
     });
 
-    it('should push new jobs and emit job:pushed', function() {
+    it('should push new jobs and emit job:pushed', () => {
         return tasqueue.init()
-        .then(function() {
+        .then(() => {
             return tasqueue.pushJob(jobType);
         })
-        .then(function(_jobId) {
+        .then((_jobId) => {
             jobId = _jobId;
-            return Q.delay(5);
+            return Promise.delay(5);
         })
-        .then(function() {
+        .then(() => {
             if (!pushed) throw new Error('job:pushed should have been fired by now');
         })
-        .fin(function() {
-            return tasqueue.shutdown(1000, function() {});
+        .fin(() => {
+            return tasqueue.shutdown(1000, () => {});
         });
     });
 });
 
-describe('tasqueue.getJob()', function() {
-    var tasqueue = new Tasqueue();
+describe('tasqueue.getJob()', () => {
+    const tasqueue = new Tasqueue();
 
-    it('should retrieve a job', function() {
+    it('should retrieve a job', () => {
         return tasqueue.init()
-        .then(function() {
+        .then(() => {
             return tasqueue.getJob(jobId);
         })
-        .then(function(job) {
-            var jobInfos = job.details();
-            if (jobInfos.type !== jobType) throw new Error('job should be of type '+jobType);
+        .then((job) => {
+            const jobInfos = job.details();
+            if (jobInfos.type !== jobType) throw new Error('job should be of type ' + jobType);
         })
-        .fin(function() {
-            return tasqueue.shutdown(1000, function() {});
+        .fin(() => {
+            return tasqueue.shutdown(1000, () => {});
         });
     });
 });
 
-describe('job.cancel()', function() {
-    var tasqueue = new Tasqueue();
-    var canceled = false;
+describe('job.cancel()', () => {
+    const tasqueue = new Tasqueue();
+    let canceled = false;
 
-    tasqueue.on('job:canceled', function(job) {
+    tasqueue.on('job:canceled', (job) => {
         if (job.id === jobId) canceled = true;
     });
 
-    it('should cancel a job and emit job:canceled', function() {
+    it('should cancel a job and emit job:canceled', () => {
         return tasqueue.init()
-        .then(function() {
+        .then(() => {
             return tasqueue.getJob(jobId);
         })
-        .then(function(job) {
+        .then((job) => {
             return job.cancel();
         })
-        .then(function() {
-            return Q.delay(5);
+        .then(() => {
+            return Promise.delay(5);
         })
-        .then(function() {
+        .then(() => {
             if (!canceled) throw new Error('job:canceled should have been fired by now');
         })
-        .then(function() {
+        .then(() => {
             return tasqueue.getJob(jobId);
         })
-        .then(function() {
-            throw new Error('job '+jobId+' should have been canceled');
-        }, function() {
-            return Q();
+        .then(() => {
+            throw new Error('job ' + jobId + ' should have been canceled');
+        }, () => {
+            return Promise();
         })
-        .fin(function() {
-            return tasqueue.shutdown(1000, function() {});
+        .fin(() => {
+            return tasqueue.shutdown(1000, () => {});
         });
     });
 });
 
-describe('tasqueue.countFailed()', function() {
-    var tasqueue = new Tasqueue();
+describe('tasqueue.countFailed()', () => {
+    const tasqueue = new Tasqueue();
 
-    it('should return the number of failed jobs', function() {
+    it('should return the number of failed jobs', () => {
         return tasqueue.init()
-        .then(function() {
+        .then(() => {
             return tasqueue.countFailed();
         })
-        .then(function(countFailed) {
+        .then((countFailed) => {
             if (!countFailed === 1) throw new Error('a canceled job should be marked as failed');
-            return Q();
+            return Promise();
         })
-        .fin(function() {
-            return tasqueue.shutdown(1000, function() {});
+        .fin(() => {
+            return tasqueue.shutdown(1000, () => {});
         });
     });
 });
 
-describe('tasqueue.listFailed()', function() {
-    var tasqueue = new Tasqueue();
+describe('tasqueue.listFailed()', () => {
+    const tasqueue = new Tasqueue();
 
-    it('should return the list of failed jobs', function() {
+    it('should return the list of failed jobs', () => {
         return tasqueue.init()
-        .then(function() {
+        .then(() => {
             return tasqueue.listFailed();
         })
-        .then(function(res) {
+        .then((res) => {
             if (!res.list) throw new Error('#listFailed() result should have a list property');
             if (!res.list.length) throw new Error('canceled job should be in the #listFailed() result list');
 
-            var job = res.list[0].details();
+            const job = res.list[0].details();
             jobId = job.id;
         })
-        .fin(function() {
-            return tasqueue.shutdown(1000, function() {});
+        .fin(() => {
+            return tasqueue.shutdown(1000, () => {});
         });
     });
 });
 
-describe('job.delete()', function() {
-    var tasqueue = new Tasqueue();
-    var deleted  = false;
+describe('job.delete()', () => {
+    const tasqueue = new Tasqueue();
+    let deleted  = false;
 
-    tasqueue.on('job:deleted', function(job) {
+    tasqueue.on('job:deleted', (job) => {
         if (job.id === jobId) deleted = true;
     });
 
-    it('should delete a job and emit job:deleted', function() {
+    it('should delete a job and emit job:deleted', () => {
         return tasqueue.init()
-        .then(function() {
+        .then(() => {
             return tasqueue.getJob(jobId);
         })
-        .then(function(job) {
+        .then((job) => {
             return job.delete();
         })
-        .then(function() {
-            return Q.delay(5);
+        .then(() => {
+            return Promise.delay(5);
         })
-        .then(function() {
+        .then(() => {
             if (!deleted) throw new Error('job:deleted should have been fired by now');
         })
-        .then(function() {
+        .then(() => {
             return tasqueue.getJob(jobId);
         })
-        .then(function() {
-            throw new Error('job '+jobId+' should have been deleted');
-        }, function() {
-            return Q();
+        .then(() => {
+            throw new Error('job ' + jobId + ' should have been deleted');
+        }, () => {
+            return Promise();
         })
-        .fin(function() {
-            return tasqueue.shutdown(1000, function() {});
+        .fin(() => {
+            return tasqueue.shutdown(1000, () => {});
         });
     });
 });
-
-
-

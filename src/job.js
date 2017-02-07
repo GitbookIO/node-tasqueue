@@ -1,6 +1,6 @@
-var _      = require('lodash');
-var Q      = require('q');
-var config = require('./config');
+const _      = require('lodash');
+const Q      = require('q');
+const config = require('./config');
 
 /**
  *  CONSTRUCTOR
@@ -8,12 +8,12 @@ var config = require('./config');
 
 // Create a new Job and extend with disque SHOW details
 function Job(tasqueue, details) {
-    var that = this;
+    const that = this;
 
     that.tasqueue = tasqueue;
 
     // Extend job with disque details
-    _.forIn(details, function(v, k) {
+    _.forIn(details, (v, k) => {
         that[k] = v;
     });
 
@@ -45,7 +45,7 @@ Job.prototype.details = function() {
 // Cancel a job -> move to FAILED
 // Error if job is not in QUEUED
 Job.prototype.cancel = function(force) {
-    var that = this;
+    const that = this;
 
     if (!that.isQueued()) {
         return Q.reject(new Error('Only queued jobs may be cancelled'));
@@ -53,10 +53,10 @@ Job.prototype.cancel = function(force) {
 
     // Pause QUEUED to prevent GETJOB operations on this job
     return that.tasqueue.queues[config.QUEUED].pause('out')
-    .then(function() {
+    .then(() => {
         // Add job to FAILED
         return that.setAsFailed(new Error('Canceled'))
-        .then(function() {
+        .then(() => {
             // Emit event
             that.tasqueue.emit('job:canceled', {
                 id:   that.id,
@@ -64,7 +64,7 @@ Job.prototype.cancel = function(force) {
             });
         });
     })
-    .fail(function(err) {
+    .fail((err) => {
         // Emit event
         that.tasqueue.emit('error:job-cancel', err, {
             id:   that.id,
@@ -72,18 +72,18 @@ Job.prototype.cancel = function(force) {
         });
     })
     // Unpause QUEUED whatever the result is
-    .fin(function() {
+    .fin(() => {
         return that.tasqueue.queues[config.QUEUED].pause('none');
     });
 };
 
 // Utterly delete a job
 Job.prototype.delete = function(emit) {
-    var that = this;
+    const that = this;
 
     emit = emit || true;
     return Q(that.tasqueue.client.deljob(that.id))
-    .then(function() {
+    .then(() => {
         if (emit) {
             that.tasqueue.emit('job:deleted', {
                 id:   that.id,
@@ -214,16 +214,16 @@ Job.prototype.getError = function() {
 
 // Acknowledge job to disque
 Job.prototype.acknowledge = function() {
-    var that = this;
+    const that = this;
     return Q(that.tasqueue.client.fastack(that.id));
 };
 
 // Handle failed job: nack and requeue or push to FAILED
 Job.prototype.failed = function(err) {
-    var that = this;
+    const that = this;
 
     // Get maxAttempts for this type of job
-    var maxAttemps = that.tasqueue.getWorkerByType(that.getType()).maxAttemps;
+    const maxAttemps = that.tasqueue.getWorkerByType(that.getType()).maxAttemps;
 
     // Too many nacks, push to failed queue
     if (that.getAttempts() >= maxAttemps) {
@@ -240,7 +240,7 @@ Job.prototype.failed = function(err) {
         // Requeue job into QUEUED with updated nacks count
         that.body._nacks = that.getAttempts();
         return that.tasqueue.queues[config.QUEUED].addJob(that)
-        .then(function() {
+        .then(() => {
             // Delete job from ACTIVE
             return that.delete(false);
         });
@@ -249,17 +249,17 @@ Job.prototype.failed = function(err) {
 
 // Base function to push a job to the COMPLETED queue
 Job.prototype.setAsCompleted = function(result) {
-    var that = this;
+    const that = this;
 
     // Add result to body
     that.body._result = result;
 
     // Add to COMPLETED
     return that.tasqueue.queues[config.COMPLETED].addJob(that)
-    .then(function() {
+    .then(() => {
         // Acknowledge job in ACTIVE
         return that.acknowledge()
-        .then(function() {
+        .then(() => {
             // Emit event
             that.tasqueue.emit('job:success', {
                 id:   that.id,
@@ -271,7 +271,7 @@ Job.prototype.setAsCompleted = function(result) {
 
 // Base function to push a job to the FAILED queue
 Job.prototype.setAsFailed = function(err) {
-    var that = this;
+    const that = this;
 
     // Add error info to body
     that.body._error = {
@@ -281,10 +281,10 @@ Job.prototype.setAsFailed = function(err) {
 
     // Add to FAILED
     return that.tasqueue.queues[config.FAILED].addJob(that)
-    .then(function() {
+    .then(() => {
         // Acknowledge job in ACTIVE
         return that.acknowledge()
-        .then(function() {
+        .then(() => {
             // Emit event
             that.tasqueue.emit('error:job-failed', err, {
                 id:   that.id,
@@ -297,13 +297,13 @@ Job.prototype.setAsFailed = function(err) {
 // Map results of a disque JSCAN occurence to a new Job
 Job.fromJSCAN = function(tasqueue, infos) {
     // Map job info from JSCAN result
-    var _job = {};
-    for (var i = 0; i < infos.length; i+=2) {
-        _job[infos[i]] = infos[i+1];
+    const _job = {};
+    for (let i = 0; i < infos.length; i += 2) {
+        _job[infos[i]] = infos[i + 1];
     }
 
     // Create an actual Job object and return details
-    var job = new Job(tasqueue, _job);
+    const job = new Job(tasqueue, _job);
     return job.details();
 };
 
