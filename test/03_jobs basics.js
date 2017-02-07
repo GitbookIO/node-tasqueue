@@ -14,19 +14,17 @@ describe('tasqueue.pushJob()', () => {
 
     it('should push new jobs and emit job:pushed', () => {
         return tasqueue.init()
-        .then(() => {
-            return tasqueue.pushJob(jobType);
-        })
+        .then(() => tasqueue.pushJob(jobType))
         .then((_jobId) => {
             jobId = _jobId;
             return Promise.delay(5);
         })
         .then(() => {
-            if (!pushed) throw new Error('job:pushed should have been fired by now');
+            if (!pushed) {
+                throw new Error('job:pushed should have been fired by now');
+            }
         })
-        .fin(() => {
-            return tasqueue.shutdown(1000, () => {});
-        });
+        .fin(() => tasqueue.shutdown(1000, () => {}));
     });
 });
 
@@ -35,16 +33,15 @@ describe('tasqueue.getJob()', () => {
 
     it('should retrieve a job', () => {
         return tasqueue.init()
-        .then(() => {
-            return tasqueue.getJob(jobId);
-        })
+        .then(() => tasqueue.getJob(jobId))
         .then((job) => {
             const jobInfos = job.details();
-            if (jobInfos.type !== jobType) throw new Error('job should be of type ' + jobType);
+
+            if (jobInfos.type !== jobType) {
+                throw new Error('job should be of type ' + jobType);
+            }
         })
-        .fin(() => {
-            return tasqueue.shutdown(1000, () => {});
-        });
+        .fin(() => tasqueue.shutdown(1000, () => {}));
     });
 });
 
@@ -53,34 +50,29 @@ describe('job.cancel()', () => {
     let canceled = false;
 
     tasqueue.on('job:canceled', (job) => {
-        if (job.id === jobId) canceled = true;
+        if (job.id === jobId) {
+            canceled = true;
+        }
     });
 
     it('should cancel a job and emit job:canceled', () => {
         return tasqueue.init()
+        .then(() => tasqueue.getJob(jobId))
+        .then(job => job.cancel())
+        .then(() => Promise.delay(5))
         .then(() => {
-            return tasqueue.getJob(jobId);
+            if (!canceled) {
+                throw new Error('job:canceled should have been fired by now');
+            }
         })
-        .then((job) => {
-            return job.cancel();
-        })
-        .then(() => {
-            return Promise.delay(5);
-        })
-        .then(() => {
-            if (!canceled) throw new Error('job:canceled should have been fired by now');
-        })
-        .then(() => {
-            return tasqueue.getJob(jobId);
-        })
-        .then(() => {
-            throw new Error('job ' + jobId + ' should have been canceled');
-        }, () => {
-            return Promise();
-        })
-        .fin(() => {
-            return tasqueue.shutdown(1000, () => {});
-        });
+        .then(() => tasqueue.getJob(jobId))
+        .then(
+            () => {
+                throw new Error('job ' + jobId + ' should have been canceled');
+            },
+            () => Promise()
+        )
+        .fin(() => tasqueue.shutdown(1000, () => {}));
     });
 });
 
@@ -89,16 +81,15 @@ describe('tasqueue.countFailed()', () => {
 
     it('should return the number of failed jobs', () => {
         return tasqueue.init()
-        .then(() => {
-            return tasqueue.countFailed();
-        })
+        .then(() => tasqueue.countFailed())
         .then((countFailed) => {
-            if (!countFailed === 1) throw new Error('a canceled job should be marked as failed');
+            if (!countFailed === 1) {
+                throw new Error('a canceled job should be marked as failed');
+            }
+
             return Promise();
         })
-        .fin(() => {
-            return tasqueue.shutdown(1000, () => {});
-        });
+        .fin(() => tasqueue.shutdown(1000, () => {}));
     });
 });
 
@@ -107,19 +98,19 @@ describe('tasqueue.listFailed()', () => {
 
     it('should return the list of failed jobs', () => {
         return tasqueue.init()
-        .then(() => {
-            return tasqueue.listFailed();
-        })
+        .then(() => tasqueue.listFailed())
         .then((res) => {
-            if (!res.list) throw new Error('#listFailed() result should have a list property');
-            if (!res.list.length) throw new Error('canceled job should be in the #listFailed() result list');
+            if (!res.list) {
+                throw new Error('#listFailed() result should have a list property');
+            }
+            if (!res.list.length) {
+                throw new Error('canceled job should be in the #listFailed() result list');
+            }
 
             const job = res.list[0].details();
             jobId = job.id;
         })
-        .fin(() => {
-            return tasqueue.shutdown(1000, () => {});
-        });
+        .fin(() => tasqueue.shutdown(1000, () => {}));
     });
 });
 
@@ -128,33 +119,28 @@ describe('job.delete()', () => {
     let deleted  = false;
 
     tasqueue.on('job:deleted', (job) => {
-        if (job.id === jobId) deleted = true;
+        if (job.id === jobId) {
+            deleted = true;
+        }
     });
 
     it('should delete a job and emit job:deleted', () => {
         return tasqueue.init()
+        .then(() => tasqueue.getJob(jobId))
+        .then(job => job.delete())
+        .then(() => Promise.delay(5))
         .then(() => {
-            return tasqueue.getJob(jobId);
+            if (!deleted) {
+                throw new Error('job:deleted should have been fired by now');
+            }
         })
-        .then((job) => {
-            return job.delete();
-        })
-        .then(() => {
-            return Promise.delay(5);
-        })
-        .then(() => {
-            if (!deleted) throw new Error('job:deleted should have been fired by now');
-        })
-        .then(() => {
-            return tasqueue.getJob(jobId);
-        })
-        .then(() => {
-            throw new Error('job ' + jobId + ' should have been deleted');
-        }, () => {
-            return Promise();
-        })
-        .fin(() => {
-            return tasqueue.shutdown(1000, () => {});
-        });
+        .then(() => tasqueue.getJob(jobId))
+        .then(
+            () => {
+                throw new Error('job ' + jobId + ' should have been deleted');
+            },
+            () => Promise()
+        )
+        .fin(() => tasqueue.shutdown(1000, () => {}));
     });
 });

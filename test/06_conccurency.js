@@ -11,12 +11,20 @@ describe('Concurrency', () => {
         pollDelay: 100
     });
 
-    const handler1 = { type: jobType1, exec() {
-        return Promise.delay(2000);
-    }};
-    const handler2 = { type: jobType2, concurrency: TO_PUSH, exec() {
-        return Promise.delay(200);
-    }};
+    const handler1 = {
+        type: jobType1,
+        exec() {
+            return Promise.delay(2000);
+        }
+    };
+
+    const handler2 = {
+        type: jobType2,
+        concurrency: TO_PUSH,
+        exec() {
+            return Promise.delay(200);
+        }
+    };
 
     tasqueue.registerHandler(handler1);
     tasqueue.registerHandler(handler2);
@@ -30,9 +38,8 @@ describe('Concurrency', () => {
     });
 
     it('should push some other jobs', () => {
-        return Promise(_.range(TO_PUSH)).eachSeries(() => {
-            return tasqueue.pushJob(jobType2);
-        });
+        return Promise(_.range(TO_PUSH))
+        .eachSeries(() => tasqueue.pushJob(jobType2));
     });
 
     it('should start polling', () => {
@@ -41,22 +48,24 @@ describe('Concurrency', () => {
 
     it('should be processing all jobs', () => {
         return Promise.delay(100)
-        .then(() => {
-            return tasqueue.countActive();
-        })
+        .then(() => tasqueue.countActive())
         .then((countActive) => {
-            if (countActive !== (TO_PUSH + 1)) throw new Error('all jobs should be processing');
+            if (countActive !== (TO_PUSH + 1)) {
+                throw new Error('all jobs should be processing');
+            }
+
             return Promise();
         });
     });
 
     it('should have processed all jobs after some time', () => {
         return Promise.delay(3000)
-        .then(() => {
-            return tasqueue.countCompleted();
-        })
+        .then(() => tasqueue.countCompleted())
         .then((countCompleted) => {
-            if (countCompleted !== (TO_PUSH + 1)) throw new Error('all pushed jobs should have succeeded');
+            if (countCompleted !== (TO_PUSH + 1)) {
+                throw new Error('all pushed jobs should have succeeded');
+            }
+
             return Promise();
         });
     });
@@ -64,17 +73,13 @@ describe('Concurrency', () => {
     it('should clean all jobs before shuting down', () => {
         return tasqueue.listFailed()
         .then((res) => {
-            return Promise(res.list).eachSeries((job) => {
-                return job.delete();
-            });
+            return Promise(res.list)
+            .eachSeries(job => job.delete());
         })
-        .then(() => {
-            return tasqueue.listCompleted();
-        })
+        .then(() => tasqueue.listCompleted())
         .then((res) => {
-            return Promise(res.list).eachSeries((job) => {
-                return job.delete();
-            });
+            return Promise(res.list)
+            .eachSeries(job => job.delete());
         });
     });
 

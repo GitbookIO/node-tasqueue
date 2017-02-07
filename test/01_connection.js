@@ -9,9 +9,7 @@ describe('tasqueue.init()', () => {
         .fail((err) => {
             throw err;
         })
-        .fin(() => {
-            return tasqueue.shutdown(1000, () => {});
-        });
+        .fin(() => tasqueue.shutdown(1000, () => {}));
     });
 });
 
@@ -20,15 +18,11 @@ describe('tasqueue.ping()', () => {
 
     it('should check connection to disque', () => {
         return tasqueue.init()
-        .then(() => {
-            return tasqueue.ping();
-        })
+        .then(() => tasqueue.ping())
         .fail((err) => {
             throw err;
         })
-        .fin(() => {
-            return tasqueue.shutdown(1000, () => {});
-        });
+        .fin(() => tasqueue.shutdown(1000, () => {}));
     });
 });
 
@@ -37,22 +31,17 @@ describe('tasqueue.shutdown()', () => {
 
     it('should end connection to disque', () => {
         return tasqueue.init()
-        .then(() => {
-            return tasqueue.ping();
-        })
-        .then(() => {
-            return tasqueue.shutdown(1000, () => {});
-        })
+        .then(() => tasqueue.ping())
+        .then(() => tasqueue.shutdown(1000, () => {}))
         .fail((err) => {
             throw err;
         })
-        .fin(() => {
-            return tasqueue.ping();
-        })
-        .then(() => {
-            throw new Error('Client shouldn\'t be able to ping on a closed connection');
-        }, (err) => {
-            return Promise();
-        });
+        .fin(() => tasqueue.ping())
+        .then(
+            () => {
+                throw new Error('Client shouldn\'t be able to ping on a closed connection');
+            },
+            () => Promise()
+        );
     });
 });

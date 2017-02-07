@@ -7,11 +7,11 @@ const jobType1 = 'handler1';
 const jobType2 = 'handler2';
 
 describe('Running tasqueue', () => {
-    const tasqueue  = new Tasqueue({
+    const tasqueue = new Tasqueue({
         pollDelay: 100
     });
     let nHandlers = 0;
-    let polling   = false;
+    let polling = false;
 
     tasqueue.on('handler:registered', (h) => {
         nHandlers++;
@@ -54,7 +54,8 @@ describe('Running tasqueue', () => {
     });
 
     it('should push some jobs', () => {
-        return Promise(_.range(TO_PUSH)).eachSeries((n, i) => {
+        return Promise(_.range(TO_PUSH))
+        .eachSeries((n, i) => {
             const jobType = (i % 2 === 0) ? jobType1 : jobType2;
             return tasqueue.pushJob(jobType);
         });
@@ -73,9 +74,7 @@ describe('Running tasqueue', () => {
 
     it('should be processing jobs', () => {
         return Promise.delay(100)
-        .then(() => {
-            return tasqueue.countActive();
-        })
+        .then(() => tasqueue.countActive())
         .then((countActive) => {
             if (!countActive) {
                 throw new Error('some jobs should be processing');
@@ -104,17 +103,13 @@ describe('Running tasqueue', () => {
     it('should clean all jobs before shuting down', () => {
         return tasqueue.listFailed()
         .then((res) => {
-            return Promise(res.list).eachSeries((job) => {
-                return job.delete();
-            });
+            return Promise(res.list)
+            .eachSeries(job => job.delete());
         })
-        .then(() => {
-            return tasqueue.listCompleted();
-        })
+        .then(() => tasqueue.listCompleted())
         .then((res) => {
-            return Promise(res.list).eachSeries((job) => {
-                return job.delete();
-            });
+            return Promise(res.list)
+            .eachSeries(job => job.delete());
         });
     });
 
