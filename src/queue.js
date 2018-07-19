@@ -1,5 +1,5 @@
 const _ = require('lodash');
-const Promise = require('q');
+const Promise = require('q-plus');
 const Job = require('./job');
 const config = require('./config');
 
